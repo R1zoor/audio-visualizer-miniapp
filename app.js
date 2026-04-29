@@ -5,7 +5,7 @@ if (tg) {
 }
 
 // ВСТАВЬ сюда актуальный URL из ngrok
-const API_BASE = "https://comma-ridden-darkish.ngrok-free.dev";
+const API_BASE = "https://hrs-humanity-corporation-represent.trycloudflare.com";
 
 const audioFileInput = document.getElementById("audioFile");
 const styleSelect = document.getElementById("style");
