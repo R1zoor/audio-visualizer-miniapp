@@ -2,10 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Audio Visualizer</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -265,15 +262,8 @@
 
       <div class="field">
         <label for="audioFile">Аудиофайл</label>
-        <input
-          id="audioFile"
-          class="file-input"
-          type="file"
-          accept=".mp3,.wav,audio/mpeg,audio/wav"
-        />
-        <div class="hint">
-          Поддерживаются MP3 и WAV.
-        </div>
+        <input id="audioFile" class="file-input" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" />
+        <div class="hint">Поддерживаются MP3 и WAV.</div>
       </div>
 
       <div class="row">
@@ -346,9 +336,11 @@
       statusBox.innerHTML = "";
     }
 
-    function buildDownloadUrl(resultFile) {
-      const fileName = resultFile.split("/").pop();
-      return `${API_BASE}/download/${encodeURIComponent(fileName)}`;
+    function getErrorMessage(data, fallback) {
+      if (!data) return fallback;
+      if (typeof data.detail === "string") return data.detail;
+      if (typeof data.error === "string") return data.error;
+      return fallback;
     }
 
     async function pollStatus(taskId) {
@@ -356,23 +348,32 @@
         const response = await fetch(`${API_BASE}/status/${taskId}`);
         const data = await response.json();
 
-        if (data.status === "SUCCESS" && data.result?.result_file) {
-          const downloadUrl = buildDownloadUrl(data.result.result_file);
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "Не удалось получить статус задачи."));
+        }
+
+        if (data.status === "done" && data.download_url) {
+          const downloadUrl = `${API_BASE}${data.download_url}`;
           setStatus(
-            `Рендер готов.<br><a class="download-link" href="${downloadUrl}" target="_blank">Скачать MP4</a>`,
+            `Рендер готов.<br><a class="download-link" href="${downloadUrl}" target="_blank" rel="noopener noreferrer">Скачать MP4</a>`,
             "success"
           );
           renderButton.disabled = false;
           return;
         }
 
-        if (data.status === "FAILURE") {
-          setStatus("Рендер завершился с ошибкой. Проверь backend и логи worker.", "error");
-          renderButton.disabled = false;
-          return;
+        if (data.status === "failed") {
+          throw new Error(getErrorMessage(data, "Рендер завершился с ошибкой."));
         }
 
-        setStatus(`Статус задачи: ${data.status}. Ждём завершения...`);
+        if (data.status === "queued") {
+          setStatus("Задача создана и поставлена в очередь. Ждём начала обработки...");
+        } else if (data.status === "processing") {
+          setStatus("Идёт рендер видео. Это может занять до 1–2 минут...");
+        } else {
+          setStatus(`Статус задачи: ${data.status}. Ждём завершения...`);
+        }
+
         await new Promise(resolve => setTimeout(resolve, 2500));
       }
     }
@@ -397,20 +398,18 @@
         formData.append("file", file);
 
         const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}`;
-
         const response = await fetch(uploadUrl, {
           method: "POST",
           body: formData,
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "Upload failed");
+          throw new Error(getErrorMessage(data, "Не удалось загрузить файл."));
         }
 
-        const data = await response.json();
         setStatus(`Задача создана. ID: ${data.task_id}<br>Начинаем опрос статуса...`);
-
         await pollStatus(data.task_id);
       } catch (error) {
         setStatus(`Ошибка: ${error.message}`, "error");
