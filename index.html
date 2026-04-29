@@ -102,7 +102,6 @@
       color: var(--muted);
     }
 
-    .input,
     .select,
     .file-input {
       width: 100%;
@@ -115,7 +114,6 @@
       outline: none;
     }
 
-    .input:focus,
     .select:focus,
     .file-input:focus {
       border-color: rgba(40, 199, 224, 0.6);
@@ -266,20 +264,6 @@
       <h2 class="section-title">Новый рендер</h2>
 
       <div class="field">
-        <label for="apiBase">API URL</label>
-        <input
-          id="apiBase"
-          class="input"
-          type="text"
-          value="http://localhost:8000"
-          placeholder="https://your-api-domain.com"
-        />
-        <div class="hint">
-          Пока для теста можно менять вручную. Позже мы зашьём нормальный production URL.
-        </div>
-      </div>
-
-      <div class="field">
         <label for="audioFile">Аудиофайл</label>
         <input
           id="audioFile"
@@ -287,6 +271,9 @@
           type="file"
           accept=".mp3,.wav,audio/mpeg,audio/wav"
         />
+        <div class="hint">
+          Поддерживаются MP3 и WAV.
+        </div>
       </div>
 
       <div class="row">
@@ -339,7 +326,8 @@
       tg.expand();
     }
 
-    const apiBaseInput = document.getElementById("apiBase");
+    const API_BASE = "https://comma-ridden-darkish.ngrok-free.dev";
+
     const audioFileInput = document.getElementById("audioFile");
     const styleSelect = document.getElementById("style");
     const modeSelect = document.getElementById("mode");
@@ -358,21 +346,18 @@
       statusBox.innerHTML = "";
     }
 
-    function buildDownloadUrl(apiBase, resultFile) {
-      const cleanBase = apiBase.replace(/\/+$/, "");
+    function buildDownloadUrl(resultFile) {
       const fileName = resultFile.split("/").pop();
-      return `${cleanBase}/download/${encodeURIComponent(fileName)}`;
+      return `${API_BASE}/download/${encodeURIComponent(fileName)}`;
     }
 
-    async function pollStatus(apiBase, taskId) {
-      const cleanBase = apiBase.replace(/\/+$/, "");
-
+    async function pollStatus(taskId) {
       while (true) {
-        const response = await fetch(`${cleanBase}/status/${taskId}`);
+        const response = await fetch(`${API_BASE}/status/${taskId}`);
         const data = await response.json();
 
         if (data.status === "SUCCESS" && data.result?.result_file) {
-          const downloadUrl = buildDownloadUrl(cleanBase, data.result.result_file);
+          const downloadUrl = buildDownloadUrl(data.result.result_file);
           setStatus(
             `Рендер готов.<br><a class="download-link" href="${downloadUrl}" target="_blank">Скачать MP4</a>`,
             "success"
@@ -398,12 +383,6 @@
       const file = audioFileInput.files[0];
       const style = styleSelect.value;
       const mode = modeSelect.value;
-      const apiBase = apiBaseInput.value.trim();
-
-      if (!apiBase) {
-        setStatus("Укажи API URL.", "error");
-        return;
-      }
 
       if (!file) {
         setStatus("Сначала выбери MP3 или WAV файл.", "error");
@@ -417,8 +396,7 @@
         const formData = new FormData();
         formData.append("file", file);
 
-        const cleanBase = apiBase.replace(/\/+$/, "");
-        const uploadUrl = `${cleanBase}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}`;
+        const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}`;
 
         const response = await fetch(uploadUrl, {
           method: "POST",
@@ -433,7 +411,7 @@
         const data = await response.json();
         setStatus(`Задача создана. ID: ${data.task_id}<br>Начинаем опрос статуса...`);
 
-        await pollStatus(cleanBase, data.task_id);
+        await pollStatus(data.task_id);
       } catch (error) {
         setStatus(`Ошибка: ${error.message}`, "error");
         renderButton.disabled = false;
