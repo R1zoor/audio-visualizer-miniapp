@@ -200,6 +200,7 @@
       line-height: 1.6;
       color: var(--muted);
       display: none;
+      white-space: pre-line;
     }
 
     .status.show {
@@ -229,6 +230,10 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.6;
+    }
+
+    code {
+      color: #9be7f5;
     }
 
     @media (min-width: 640px) {
@@ -336,6 +341,27 @@
       statusBox.innerHTML = "";
     }
 
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function safeJson(response) {
+      const contentType = response.headers.get("content-type") || "";
+      const text = await response.text();
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          "Сервер вернул не JSON. Возможно, ngrok недоступен, URL устарел или пришла HTML-страница ошибки."
+        );
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error("Не удалось разобрать JSON-ответ сервера.");
+      }
+    }
+
     function getErrorMessage(data, fallback) {
       if (!data) return fallback;
       if (typeof data.detail === "string") return data.detail;
@@ -343,10 +369,44 @@
       return fallback;
     }
 
+    async function checkApiHealth() {
+      try {
+        const response = await fetch(`${API_BASE}/`, {
+          method: "GET",
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok) {
+          throw new Error(`API вернул статус ${response.status}`);
+        }
+
+        if (!contentType.includes("application/json")) {
+          throw new Error("API ответил не JSON-ом.");
+        }
+
+        return true;
+      } catch (error) {
+        throw new Error(
+          "Сервер недоступен. Проверь, что Docker API запущен, ngrok активен и API_BASE в index.html актуален."
+        );
+      }
+    }
+
     async function pollStatus(taskId) {
       while (true) {
-        const response = await fetch(`${API_BASE}/status/${taskId}`);
-        const data = await response.json();
+        let response;
+        let data;
+
+        try {
+          response = await fetch(`${API_BASE}/status/${taskId}`, {
+            method: "GET",
+          });
+          data = await safeJson(response);
+        } catch (error) {
+          throw new Error(
+            `Не удалось получить статус задачи.\n${error.message}`
+          );
+        }
 
         if (!response.ok) {
           throw new Error(getErrorMessage(data, "Не удалось получить статус задачи."));
@@ -374,7 +434,7 @@
           setStatus(`Статус задачи: ${data.status}. Ждём завершения...`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        await sleep(2500);
       }
     }
 
@@ -391,19 +451,32 @@
       }
 
       renderButton.disabled = true;
-      setStatus("Загружаем файл и создаём задачу...");
+      setStatus("Проверяем доступность API...");
 
       try {
+        await checkApiHealth();
+
+        setStatus("Загружаем файл и создаём задачу...");
+
         const formData = new FormData();
         formData.append("file", file);
 
         const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}`;
-        const response = await fetch(uploadUrl, {
-          method: "POST",
-          body: formData,
-        });
 
-        const data = await response.json();
+        let response;
+        let data;
+
+        try {
+          response = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+          });
+          data = await safeJson(response);
+        } catch (error) {
+          throw new Error(
+            `Не удалось загрузить файл.\n${error.message}`
+          );
+        }
 
         if (!response.ok) {
           throw new Error(getErrorMessage(data, "Не удалось загрузить файл."));
@@ -412,7 +485,7 @@
         setStatus(`Задача создана. ID: ${data.task_id}<br>Начинаем опрос статуса...`);
         await pollStatus(data.task_id);
       } catch (error) {
-        setStatus(`Ошибка: ${error.message}`, "error");
+        setStatus(`Ошибка:\n${error.message}`, "error");
         renderButton.disabled = false;
       }
     }
