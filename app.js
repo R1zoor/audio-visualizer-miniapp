@@ -5,7 +5,7 @@ if (tg) {
 }
 
 // Актуальный URL API
-const API_BASE = "https://hrs-humanity-corporation-represent.trycloudflare.com";
+const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
 
 const audioFileInput = document.getElementById("audioFile");
 const styleSelect = document.getElementById("style");
