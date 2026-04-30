@@ -4,12 +4,13 @@ if (tg) {
   tg.expand();
 }
 
-// ВСТАВЬ сюда актуальный URL из ngrok
+// Актуальный URL API
 const API_BASE = "https://hrs-humanity-corporation-represent.trycloudflare.com";
 
 const audioFileInput = document.getElementById("audioFile");
 const styleSelect = document.getElementById("style");
 const modeSelect = document.getElementById("mode");
+const paletteSelect = document.getElementById("palette");
 const renderButton = document.getElementById("renderButton");
 const resetButton = document.getElementById("resetButton");
 const statusBox = document.getElementById("statusBox");
@@ -35,7 +36,7 @@ async function safeJson(response) {
 
   if (!contentType.includes("application/json")) {
     throw new Error(
-      "Сервер вернул не JSON. Возможно, ngrok недоступен, URL устарел или пришла HTML-страница ошибки."
+      "Сервер вернул не JSON. Возможно, туннель недоступен, URL устарел или пришла HTML-страница ошибки."
     );
   }
 
@@ -136,6 +137,7 @@ async function uploadAndRender() {
   const file = audioFileInput.files[0];
   const style = styleSelect.value;
   const mode = modeSelect.value;
+  const palette = paletteSelect ? paletteSelect.value : "default";
 
   if (!file) {
     setStatus("Сначала выбери MP3 или WAV файл.", "error");
@@ -153,7 +155,9 @@ async function uploadAndRender() {
     const formData = new FormData();
     formData.append("file", file);
 
-    const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}`;
+    const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(
+      style
+    )}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
 
     let response;
     let data;
@@ -186,6 +190,9 @@ function resetForm() {
   audioFileInput.value = "";
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
+  if (paletteSelect) {
+    paletteSelect.value = "default";
+  }
   clearStatus();
   renderButton.disabled = false;
 }
