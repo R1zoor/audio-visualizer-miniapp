@@ -1,327 +1,283 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Audio Visualizer</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
 
-  <style>
-    :root {
-      --bg: #0f1115;
-      --panel: #171a21;
-      --panel-2: #1d2230;
-      --text: #f3f5f7;
-      --muted: #a7b0be;
-      --accent: #28c7e0;
-      --accent-2: #1ea7bc;
-      --danger: #ff6b6b;
-      --success: #51cf66;
-      --border: rgba(255, 255, 255, 0.08);
-      --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-      --radius: 18px;
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.expand();
+}
+
+const audioFileInput = document.getElementById("audioFile");
+const styleSelect = document.getElementById("style");
+const modeSelect = document.getElementById("mode");
+const paletteSelect = document.getElementById("palette");
+const renderButton = document.getElementById("renderButton");
+const resetButton = document.getElementById("resetButton");
+const statusBox = document.getElementById("statusBox");
+const langToggle = document.getElementById("langToggle");
+
+let currentLang = "en";
+
+const i18n = {
+  en: {
+    badge: "● MP3/WAV → MP4 visualizer",
+    title: "Create audio visualization in Telegram",
+    subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
+    sectionTitle: "New Render",
+    fileLabel: "Audio file",
+    fileHint: "MP3 and WAV are supported.",
+    styleLabel: "Style",
+    modeLabel: "Mode",
+    paletteLabel: "Palette",
+    styleWaveLine: "Wave Line",
+    styleWaveFilled: "Wave Filled",
+    styleBars: "Bars",
+    styleSpectrogram: "Spectrogram",
+    modeDemo: "Demo",
+    modeFull: "Full",
+    paletteDefault: "Default",
+    paletteNeon: "Neon",
+    paletteSunset: "Sunset",
+    palettePastel: "Pastel",
+    summaryDemo: "Demo",
+    summaryDemoDesc: "Up to 30 seconds + watermark",
+    summaryFull: "Full",
+    summaryFullDesc: "Full track without watermark",
+    renderButton: "Create Video",
+    resetButton: "Reset",
+    footerNote: "Rendering may take some time. Don't close Mini App right after starting the task.",
+    noFile: "Please select an audio file.",
+    checkingApi: "Checking API availability...",
+    uploading: "Uploading file...",
+    queued: "Task queued. Waiting for processing...",
+    processing: "Processing audio...",
+    done: "Done! Your video is ready:",
+    failed: "Render failed",
+    networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
+    badResponse: "Server returned an unexpected response.",
+    healthFailed: "API health check failed.",
+    resetDone: "Form reset.",
+    download: "Download video"
+  },
+  ru: {
+    badge: "● MP3/WAV → MP4 визуализатор",
+    title: "Создай аудио‑визуализацию прямо в Telegram",
+    subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark, а в full — полный MP4 без ограничений.",
+    sectionTitle: "Новый рендер",
+    fileLabel: "Аудиофайл",
+    fileHint: "Поддерживаются MP3 и WAV.",
+    styleLabel: "Стиль",
+    modeLabel: "Режим",
+    paletteLabel: "Палитра",
+    styleWaveLine: "Линия волны",
+    styleWaveFilled: "Заполненная волна",
+    styleBars: "Столбцы",
+    styleSpectrogram: "Спектрограмма",
+    modeDemo: "Demo",
+    modeFull: "Full",
+    paletteDefault: "Стандартная",
+    paletteNeon: "Неон",
+    paletteSunset: "Закат",
+    palettePastel: "Пастель",
+    summaryDemo: "Демо",
+    summaryDemoDesc: "До 30 секунд + watermark",
+    summaryFull: "Full",
+    summaryFullDesc: "Полный трек без watermark",
+    renderButton: "Создать видео",
+    resetButton: "Сбросить",
+    footerNote: "Рендер может занять немного времени. Не закрывай Mini App сразу после запуска задачи.",
+    noFile: "Пожалуйста, выбери аудиофайл.",
+    checkingApi: "Проверка доступности API...",
+    uploading: "Загрузка файла...",
+    queued: "Задача поставлена в очередь. Ожидание обработки...",
+    processing: "Обработка аудио...",
+    done: "Готово! Твоё видео:",
+    failed: "Ошибка рендера",
+    networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
+    badResponse: "Сервер вернул неожиданный ответ.",
+    healthFailed: "Проверка API не пройдена.",
+    resetDone: "Форма сброшена.",
+    download: "Скачать видео"
+  }
+};
+
+function t(key) {
+  return i18n[currentLang][key] || key;
+}
+
+function applyTranslations() {
+  document.documentElement.lang = currentLang;
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    if (i18n[currentLang][key]) {
+      el.textContent = i18n[currentLang][key];
+    }
+  });
+
+  document.querySelectorAll("[data-i18n-opt]").forEach((el) => {
+    const key = el.dataset.i18nOpt;
+    if (i18n[currentLang][key]) {
+      el.textContent = i18n[currentLang][key];
+    }
+  });
+
+  langToggle.textContent = currentLang === "en" ? "RU" : "EN";
+}
+
+function setStatus(message, type = "info") {
+  statusBox.className = "status show";
+  if (type === "success") statusBox.classList.add("success");
+  if (type === "error") statusBox.classList.add("error");
+  statusBox.innerHTML = `<p>${message}</p>`;
+}
+
+function setStatusHtml(html, type = "info") {
+  statusBox.className = "status show";
+  if (type === "success") statusBox.classList.add("success");
+  if (type === "error") statusBox.classList.add("error");
+  statusBox.innerHTML = html;
+}
+
+function hideStatus() {
+  statusBox.className = "status";
+  statusBox.innerHTML = "";
+}
+
+async function checkHealth() {
+  const response = await fetch(`${API_BASE}/`, {
+    method: "GET"
+  });
+
+  if (!response.ok) {
+    throw new Error(t("healthFailed"));
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(t("badResponse"));
+  }
+
+  return response.json();
+}
+
+async function uploadAndRender() {
+  const file = audioFileInput.files[0];
+  if (!file) {
+    setStatus(t("noFile"), "error");
+    return;
+  }
+
+  const style = styleSelect.value;
+  const mode = modeSelect.value;
+  const palette = paletteSelect.value;
+
+  try {
+    renderButton.disabled = true;
+
+    setStatus(t("checkingApi"), "info");
+    await checkHealth();
+
+    setStatus(t("uploading"), "info");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "POST",
+      body: formData
+    });
+
+    const uploadContentType = uploadResponse.headers.get("content-type") || "";
+    let uploadData;
+
+    if (uploadContentType.includes("application/json")) {
+      uploadData = await uploadResponse.json();
+    } else {
+      const text = await uploadResponse.text();
+      throw new Error(text || t("badResponse"));
     }
 
-    * {
-      box-sizing: border-box;
+    if (!uploadResponse.ok) {
+      throw new Error(uploadData.detail || t("badResponse"));
     }
 
-    body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(40, 199, 224, 0.12), transparent 28%),
-        var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
+    const taskId = uploadData.task_id;
+    setStatus(t("queued"), "info");
 
-    .app {
-      width: 100%;
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 20px 16px 32px;
-    }
+    let attempts = 0;
+    const maxAttempts = 180;
 
-    .hero {
-      margin-bottom: 18px;
-    }
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--accent);
-      background: rgba(40, 199, 224, 0.08);
-      border: 1px solid rgba(40, 199, 224, 0.18);
-      border-radius: 999px;
-      padding: 8px 12px;
-      margin-bottom: 14px;
-    }
+      const statusResponse = await fetch(`${API_BASE}/status/${taskId}`);
+      const statusContentType = statusResponse.headers.get("content-type") || "";
+      let statusData;
 
-    h1 {
-      margin: 0 0 10px;
-      font-size: 30px;
-      line-height: 1.05;
-      letter-spacing: -0.04em;
-    }
-
-    .lead {
-      margin: 0;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.6;
-    }
-
-    .card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 18px;
-      margin-top: 18px;
-    }
-
-    .section-title {
-      margin: 0 0 14px;
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .field {
-      margin-bottom: 16px;
-    }
-
-    .field label {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 8px;
-      color: var(--muted);
-    }
-
-    .select,
-    .file-input {
-      width: 100%;
-      border: 1px solid var(--border);
-      background: var(--panel-2);
-      color: var(--text);
-      border-radius: 14px;
-      padding: 14px 14px;
-      font-size: 15px;
-      outline: none;
-    }
-
-    .select:focus,
-    .file-input:focus {
-      border-color: rgba(40, 199, 224, 0.6);
-      box-shadow: 0 0 0 3px rgba(40, 199, 224, 0.12);
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-
-    .hint {
-      margin-top: 8px;
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .summary {
-      display: grid;
-      gap: 10px;
-      margin-top: 8px;
-      padding: 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-    }
-
-    .summary-item {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      font-size: 14px;
-    }
-
-    .summary-item span:first-child {
-      color: var(--muted);
-    }
-
-    .actions {
-      margin-top: 18px;
-      display: flex;
-      gap: 12px;
-      flex-direction: column;
-    }
-
-    .button {
-      appearance: none;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      border-radius: 14px;
-      padding: 15px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      transition: 0.2s ease;
-    }
-
-    .button-primary {
-      background: linear-gradient(180deg, var(--accent), var(--accent-2));
-      color: #041116;
-    }
-
-    .button-primary:hover {
-      filter: brightness(1.05);
-    }
-
-    .button-secondary {
-      background: rgba(255,255,255,0.05);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .status {
-      margin-top: 18px;
-      padding: 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--muted);
-      display: none;
-      white-space: pre-line;
-    }
-
-    .status.show {
-      display: block;
-    }
-
-    .status.success {
-      border-color: rgba(81, 207, 102, 0.35);
-      color: #d8ffe0;
-    }
-
-    .status.error {
-      border-color: rgba(255, 107, 107, 0.35);
-      color: #ffd6d6;
-    }
-
-    .download-link {
-      display: inline-block;
-      margin-top: 10px;
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .footer-note {
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    @media (min-width: 640px) {
-      .app {
-        padding-top: 28px;
+      if (statusContentType.includes("application/json")) {
+        statusData = await statusResponse.json();
+      } else {
+        const text = await statusResponse.text();
+        throw new Error(text || t("badResponse"));
       }
 
-      .row {
-        grid-template-columns: 1fr 1fr;
+      if (!statusResponse.ok) {
+        throw new Error(statusData.detail || t("badResponse"));
       }
 
-      h1 {
-        font-size: 40px;
+      if (statusData.status === "queued") {
+        setStatus(t("queued"), "info");
+      } else if (statusData.status === "processing") {
+        setStatus(t("processing"), "info");
+      } else if (statusData.status === "failed") {
+        const errorText = statusData.error || t("failed");
+        setStatus(`${t("failed")}: ${errorText}`, "error");
+        return;
+      } else if (statusData.status === "done") {
+        const downloadUrl = statusData.download_url
+          ? `${API_BASE}${statusData.download_url}`
+          : null;
+
+        if (!downloadUrl) {
+          throw new Error(t("badResponse"));
+        }
+
+        setStatusHtml(
+          `<p>${t("done")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
+          "success"
+        );
+        return;
       }
+
+      attempts += 1;
     }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <section class="hero">
-      <div class="badge">● MP3/WAV → MP4 visualizer</div>
-      <h1>Создай аудио‑визуализацию прямо в Telegram</h1>
-      <p class="lead">
-        Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark,
-        а в full — полный MP4 без ограничений.
-      </p>
-    </section>
 
-    <section class="card">
-      <h2 class="section-title">Новый рендер</h2>
+    setStatus(t("failed"), "error");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || t("networkError"), "error");
+  } finally {
+    renderButton.disabled = false;
+  }
+}
 
-      <div class="field">
-        <label for="audioFile">Аудиофайл</label>
-        <input id="audioFile" class="file-input" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" />
-        <div class="hint">Поддерживаются MP3 и WAV.</div>
-      </div>
+function resetForm() {
+  audioFileInput.value = "";
+  styleSelect.value = "wave_line";
+  modeSelect.value = "demo";
+  paletteSelect.value = "default";
+  hideStatus();
+  setStatus(t("resetDone"), "info");
+  setTimeout(hideStatus, 2000);
+}
 
-      <div class="row">
-        <div class="field">
-          <label for="style">Стиль</label>
-          <select id="style" class="select">
-            <option value="wave_line">Wave Line</option>
-            <option value="wave_filled">Wave Filled</option>
-            <option value="bars">Bars</option>
-            <option value="spectrogram">Spectrogram</option>
-          </select>
-        </div>
+langToggle.addEventListener("click", () => {
+  currentLang = currentLang === "en" ? "ru" : "en";
+  applyTranslations();
+});
 
-        <div class="field">
-          <label for="mode">Режим</label>
-          <select id="mode" class="select">
-            <option value="demo">Demo</option>
-            <option value="full">Full</option>
-          </select>
-        </div>
-      </div>
+renderButton.addEventListener("click", uploadAndRender);
+resetButton.addEventListener("click", resetForm);
 
-      <div class="field">
-        <label for="palette">Палитра</label>
-        <select id="palette" class="select">
-          <option value="default">Default</option>
-          <option value="neon">Neon</option>
-          <option value="sunset">Sunset</option>
-          <option value="pastel">Pastel</option>
-        </select>
-      </div>
-
-      <div class="summary">
-        <div class="summary-item">
-          <span>Демо</span>
-          <span>До 30 секунд + watermark</span>
-        </div>
-        <div class="summary-item">
-          <span>Full</span>
-          <span>Полный трек без watermark</span>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="renderButton" class="button button-primary">Создать видео</button>
-        <button id="resetButton" class="button button-secondary" type="button">Сбросить</button>
-      </div>
-
-      <div id="statusBox" class="status"></div>
-
-      <div class="footer-note">
-        Рендер может занять немного времени. Не закрывай Mini App сразу после запуска задачи.
-      </div>
-    </section>
-  </div>
-
-  <script src="app.js?v=1"></script>
-</body>
-</html>
+applyTranslations();
