@@ -2,10 +2,12 @@ const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
 
 const tg = window.Telegram?.WebApp;
 let userId = null;
+let telegramInitData = "";
 
 if (tg) {
   tg.expand();
   userId = tg.initDataUnsafe?.user?.id || null;
+  telegramInitData = tg.initData || "";
   console.log("tg =", tg);
   console.log("initData =", tg?.initData);
   console.log("initDataUnsafe =", tg?.initDataUnsafe);
@@ -20,6 +22,9 @@ const renderButton = document.getElementById("renderButton");
 const resetButton = document.getElementById("resetButton");
 const statusBox = document.getElementById("statusBox");
 const langToggle = document.getElementById("langToggle");
+const historyList = document.getElementById("historyList");
+const historyNote = document.getElementById("historyNote");
+const historyRefreshButton = document.getElementById("historyRefreshButton");
 
 let currentLang = "en";
 
@@ -63,7 +68,22 @@ const i18n = {
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    download: "Download video"
+    download: "Download video",
+    historyTitle: "Render History",
+    historyRefresh: "Refresh",
+    historyLoading: "Loading history...",
+    historyEmpty: "No renders yet.",
+    historyUnavailable: "History is available only inside Telegram Mini App.",
+    historyFailed: "Failed to load history.",
+    historyDownload: "Download",
+    statusDone: "Done",
+    statusQueued: "Queued",
+    statusProcessing: "Processing",
+    statusFailed: "Failed",
+    fileLabelShort: "File",
+    styleLabelShort: "Style",
+    modeLabelShort: "Mode",
+    paletteLabelShort: "Palette"
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -104,12 +124,60 @@ const i18n = {
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    download: "Скачать видео"
+    download: "Скачать видео",
+    historyTitle: "История рендеров",
+    historyRefresh: "Обновить",
+    historyLoading: "Загрузка истории...",
+    historyEmpty: "Рендеров пока нет.",
+    historyUnavailable: "История доступна только внутри Telegram Mini App.",
+    historyFailed: "Не удалось загрузить историю.",
+    historyDownload: "Скачать",
+    statusDone: "Готово",
+    statusQueued: "В очереди",
+    statusProcessing: "Обработка",
+    statusFailed: "Ошибка",
+    fileLabelShort: "Файл",
+    styleLabelShort: "Стиль",
+    modeLabelShort: "Режим",
+    paletteLabelShort: "Палитра"
   }
 };
 
 function t(key) {
   return i18n[currentLang][key] || key;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString(currentLang === "ru" ? "ru-RU" : "en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function translateStatus(status) {
+  if (status === "done") return t("statusDone");
+  if (status === "queued") return t("statusQueued");
+  if (status === "processing") return t("statusProcessing");
+  if (status === "failed") return t("statusFailed");
+  return status;
 }
 
 function applyTranslations() {
@@ -149,6 +217,75 @@ function setStatusHtml(html, type = "info") {
 function hideStatus() {
   statusBox.className = "status";
   statusBox.innerHTML = "";
+}
+
+function renderHistoryItems(items) {
+  if (!items.length) {
+    historyNote.textContent = t("historyEmpty");
+    historyList.innerHTML = "";
+    return;
+  }
+
+  historyNote.textContent = "";
+
+  historyList.innerHTML = items.map((item) => {
+    const resultFile = item.result_file || "";
+    const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
+    const statusClass = `chip-status-${item.status}`;
+    const canDownload = item.status === "done" && resultFile;
+
+    return `
+      <article class="history-item">
+        <div class="history-item-top">
+          <div class="history-file">${escapeHtml(item.original_filename)}</div>
+          <div class="history-date">${escapeHtml(formatDate(item.created_at))}</div>
+        </div>
+
+        <div class="history-meta">
+          <span class="chip ${statusClass}">${escapeHtml(translateStatus(item.status))}</span>
+          <span class="chip">${escapeHtml(t("styleLabelShort"))}: ${escapeHtml(item.style)}</span>
+          <span class="chip">${escapeHtml(t("modeLabelShort"))}: ${escapeHtml(item.mode)}</span>
+          <span class="chip">${escapeHtml(t("paletteLabelShort"))}: ${escapeHtml(item.palette)}</span>
+        </div>
+
+        <div class="history-actions">
+          ${canDownload ? `<a class="history-link" href="${downloadUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("historyDownload"))}</a>` : ""}
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function loadHistory() {
+  if (!userId) {
+    historyNote.textContent = t("historyUnavailable");
+    historyList.innerHTML = "";
+    return;
+  }
+
+  historyNote.textContent = t("historyLoading");
+  historyList.innerHTML = "";
+
+  try {
+    const response = await fetch(`${API_BASE}/history/${userId}?limit=20`);
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      throw new Error(t("badResponse"));
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || t("historyFailed"));
+    }
+
+    renderHistoryItems(Array.isArray(data.items) ? data.items : []);
+  } catch (error) {
+    console.error(error);
+    historyNote.textContent = error.message || t("historyFailed");
+    historyList.innerHTML = "";
+  }
 }
 
 async function checkHealth() {
@@ -191,9 +328,13 @@ async function uploadAndRender() {
     formData.append("file", file);
 
     let uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
-    
+
     if (userId) {
       uploadUrl += `&user_id=${userId}`;
+    }
+
+    if (telegramInitData) {
+      uploadUrl += `&init_data=${encodeURIComponent(telegramInitData)}`;
     }
 
     const uploadResponse = await fetch(uploadUrl, {
@@ -217,6 +358,7 @@ async function uploadAndRender() {
 
     const taskId = uploadData.task_id;
     setStatus(t("queued"), "info");
+    await loadHistory();
 
     let attempts = 0;
     const maxAttempts = 180;
@@ -247,6 +389,7 @@ async function uploadAndRender() {
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
         setStatus(`${t("failed")}: ${errorText}`, "error");
+        await loadHistory();
         return;
       } else if (statusData.status === "done") {
         if (userId) {
@@ -265,6 +408,8 @@ async function uploadAndRender() {
             "success"
           );
         }
+
+        await loadHistory();
         return;
       }
 
@@ -272,6 +417,7 @@ async function uploadAndRender() {
     }
 
     setStatus(t("failed"), "error");
+    await loadHistory();
   } catch (error) {
     console.error(error);
     setStatus(error.message || t("networkError"), "error");
@@ -293,9 +439,12 @@ function resetForm() {
 langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
+  loadHistory();
 });
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
+historyRefreshButton.addEventListener("click", loadHistory);
 
 applyTranslations();
+loadHistory();

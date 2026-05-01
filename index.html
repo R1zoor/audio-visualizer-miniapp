@@ -17,6 +17,7 @@
       --accent-2: #1ea7bc;
       --danger: #ff6b6b;
       --success: #51cf66;
+      --warning: #ffd166;
       --border: rgba(255, 255, 255, 0.08);
       --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
       --radius: 18px;
@@ -256,6 +257,124 @@
       line-height: 1.6;
     }
 
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .history-refresh {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-empty,
+    .history-note {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .history-item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      padding: 14px;
+    }
+
+    .history-item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .history-file {
+      font-size: 15px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .history-date {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .history-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .chip-status-done {
+      color: #d8ffe0;
+      border-color: rgba(81, 207, 102, 0.35);
+      background: rgba(81, 207, 102, 0.08);
+    }
+
+    .chip-status-processing,
+    .chip-status-queued {
+      color: #fff4cc;
+      border-color: rgba(255, 209, 102, 0.35);
+      background: rgba(255, 209, 102, 0.08);
+    }
+
+    .chip-status-failed {
+      color: #ffd6d6;
+      border-color: rgba(255, 107, 107, 0.35);
+      background: rgba(255, 107, 107, 0.08);
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .history-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      background: rgba(255,255,255,0.03);
+    }
+
     @media (min-width: 640px) {
       .app {
         padding-top: 28px;
@@ -346,8 +465,23 @@
         Rendering may take some time. Don't close Mini App right after starting the task.
       </div>
     </section>
+
+    <section class="card">
+      <div class="history-head">
+        <h2 class="section-title" data-i18n="historyTitle" style="margin: 0;">Render History</h2>
+        <button id="historyRefreshButton" class="history-refresh" type="button" data-i18n="historyRefresh">
+          Refresh
+        </button>
+      </div>
+
+      <div id="historyNote" class="history-note" data-i18n="historyLoading">
+        Loading history...
+      </div>
+
+      <div id="historyList" class="history-list"></div>
+    </section>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
