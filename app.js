@@ -18,9 +18,12 @@ let currentLang = "en";
 
 const i18n = {
   en: {
-    title: "Audio Visualizer Bot",
-    subtitle: "Upload MP3/WAV and get an MP4 audio visualization.",
+    badge: "● MP3/WAV → MP4 visualizer",
+    title: "Create audio visualization in Telegram",
+    subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
+    sectionTitle: "New Render",
     fileLabel: "Audio file",
+    fileHint: "MP3 and WAV are supported.",
     styleLabel: "Style",
     modeLabel: "Mode",
     paletteLabel: "Palette",
@@ -34,8 +37,13 @@ const i18n = {
     paletteNeon: "Neon",
     paletteSunset: "Sunset",
     palettePastel: "Pastel",
-    renderButton: "Render",
+    summaryDemo: "Demo",
+    summaryDemoDesc: "Up to 30 seconds + watermark",
+    summaryFull: "Full",
+    summaryFullDesc: "Full track without watermark",
+    renderButton: "Create Video",
     resetButton: "Reset",
+    footerNote: "Rendering may take some time. Don't close Mini App right after starting the task.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
@@ -50,9 +58,12 @@ const i18n = {
     download: "Download video"
   },
   ru: {
-    title: "Audio Visualizer Bot",
-    subtitle: "Загрузите MP3/WAV и получите MP4-визуализацию аудио.",
+    badge: "● MP3/WAV → MP4 визуализатор",
+    title: "Создай аудио-визуализацию прямо в Telegram",
+    subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark, а в full — полный MP4 без ограничений.",
+    sectionTitle: "Новый рендер",
     fileLabel: "Аудиофайл",
+    fileHint: "Поддерживаются MP3 и WAV.",
     styleLabel: "Стиль",
     modeLabel: "Режим",
     paletteLabel: "Палитра",
@@ -60,22 +71,27 @@ const i18n = {
     styleWaveFilled: "Заполненная волна",
     styleBars: "Столбцы",
     styleSpectrogram: "Спектрограмма",
-    modeDemo: "Демо",
-    modeFull: "Полный",
+    modeDemo: "Demo",
+    modeFull: "Full",
     paletteDefault: "Стандартная",
     paletteNeon: "Неон",
     paletteSunset: "Закат",
     palettePastel: "Пастель",
-    renderButton: "Рендер",
-    resetButton: "Сброс",
-    noFile: "Пожалуйста, выберите аудиофайл.",
+    summaryDemo: "Демо",
+    summaryDemoDesc: "До 30 секунд + watermark",
+    summaryFull: "Full",
+    summaryFullDesc: "Полный трек без watermark",
+    renderButton: "Создать видео",
+    resetButton: "Сбросить",
+    footerNote: "Рендер может занять немного времени. Не закрывай Mini App сразу после запуска задачи.",
+    noFile: "Пожалуйста, выбери аудиофайл.",
     checkingApi: "Проверка доступности API...",
     uploading: "Загрузка файла...",
     queued: "Задача поставлена в очередь. Ожидание обработки...",
     processing: "Обработка аудио...",
-    done: "Готово! Ваше видео:",
+    done: "Готово! Твоё видео:",
     failed: "Ошибка рендера",
-    networkError: "Сетевая ошибка. Проверьте API_BASE, tunnel и CORS.",
+    networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
@@ -97,17 +113,33 @@ function applyTranslations() {
     }
   });
 
+  document.querySelectorAll("[data-i18n-opt]").forEach((el) => {
+    const key = el.dataset.i18nOpt;
+    if (i18n[currentLang][key]) {
+      el.textContent = i18n[currentLang][key];
+    }
+  });
+
   langToggle.textContent = currentLang === "en" ? "RU" : "EN";
 }
 
 function setStatus(message, type = "info") {
-  statusBox.className = type;
+  statusBox.className = "status show";
+  if (type === "success") statusBox.classList.add("success");
+  if (type === "error") statusBox.classList.add("error");
   statusBox.innerHTML = `<p>${message}</p>`;
 }
 
 function setStatusHtml(html, type = "info") {
-  statusBox.className = type;
+  statusBox.className = "status show";
+  if (type === "success") statusBox.classList.add("success");
+  if (type === "error") statusBox.classList.add("error");
   statusBox.innerHTML = html;
+}
+
+function hideStatus() {
+  statusBox.className = "status";
+  statusBox.innerHTML = "";
 }
 
 async function checkHealth() {
@@ -212,7 +244,7 @@ async function uploadAndRender() {
         }
 
         setStatusHtml(
-          `<p>${t("done")}</p><p><a href="${downloadUrl}" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
+          `<p>${t("done")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
           "success"
         );
         return;
@@ -235,7 +267,9 @@ function resetForm() {
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
   paletteSelect.value = "default";
+  hideStatus();
   setStatus(t("resetDone"), "info");
+  setTimeout(hideStatus, 2000);
 }
 
 langToggle.addEventListener("click", () => {
