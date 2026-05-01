@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -41,6 +41,29 @@
       max-width: 720px;
       margin: 0 auto;
       padding: 20px 16px 32px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .lang-toggle {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    .lang-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .hero {
@@ -250,78 +273,81 @@
 </head>
 <body>
   <div class="app">
+    <div class="topbar">
+      <button id="langToggle" class="lang-toggle" type="button">RU</button>
+    </div>
+
     <section class="hero">
-      <div class="badge">● MP3/WAV → MP4 visualizer</div>
-      <h1>Создай аудио‑визуализацию прямо в Telegram</h1>
-      <p class="lead">
-        Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark,
-        а в full — полный MP4 без ограничений.
+      <div class="badge" data-i18n="badge">● MP3/WAV → MP4 visualizer</div>
+      <h1 data-i18n="title">Create audio visualization in Telegram</h1>
+      <p class="lead" data-i18n="subtitle">
+        Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.
       </p>
     </section>
 
     <section class="card">
-      <h2 class="section-title">Новый рендер</h2>
+      <h2 class="section-title" data-i18n="sectionTitle">New Render</h2>
 
       <div class="field">
-        <label for="audioFile">Аудиофайл</label>
+        <label for="audioFile" data-i18n="fileLabel">Audio file</label>
         <input id="audioFile" class="file-input" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" />
-        <div class="hint">Поддерживаются MP3 и WAV.</div>
+        <div class="hint" data-i18n="fileHint">MP3 and WAV are supported.</div>
       </div>
 
       <div class="row">
         <div class="field">
-          <label for="style">Стиль</label>
+          <label for="style" data-i18n="styleLabel">Style</label>
           <select id="style" class="select">
-            <option value="wave_line">Wave Line</option>
-            <option value="wave_filled">Wave Filled</option>
-            <option value="bars">Bars</option>
-            <option value="spectrogram">Spectrogram</option>
+            <option value="wave_line" data-i18n-opt="styleWaveLine">Wave Line</option>
+            <option value="wave_filled" data-i18n-opt="styleWaveFilled">Wave Filled</option>
+            <option value="bars" data-i18n-opt="styleBars">Bars</option>
+            <option value="spectrogram" data-i18n-opt="styleSpectrogram">Spectrogram</option>
           </select>
         </div>
 
         <div class="field">
-          <label for="mode">Режим</label>
+          <label for="mode" data-i18n="modeLabel">Mode</label>
           <select id="mode" class="select">
-            <option value="demo">Demo</option>
-            <option value="full">Full</option>
+            <option value="demo" data-i18n-opt="modeDemo">Demo</option>
+            <option value="full" data-i18n-opt="modeFull">Full</option>
           </select>
         </div>
       </div>
 
       <div class="field">
-        <label for="palette">Палитра</label>
+        <label for="palette" data-i18n="paletteLabel">Palette</label>
         <select id="palette" class="select">
-          <option value="default">Default</option>
-          <option value="neon">Neon</option>
-          <option value="sunset">Sunset</option>
-          <option value="pastel">Pastel</option>
+          <option value="default" data-i18n-opt="paletteDefault">Default</option>
+          <option value="neon" data-i18n-opt="paletteNeon">Neon</option>
+          <option value="sunset" data-i18n-opt="paletteSunset">Sunset</option>
+          <option value="pastel" data-i18n-opt="palettePastel">Pastel</option>
         </select>
       </div>
 
       <div class="summary">
         <div class="summary-item">
-          <span>Демо</span>
-          <span>До 30 секунд + watermark</span>
+          <span data-i18n="summaryDemo">Demo</span>
+          <span data-i18n="summaryDemoDesc">Up to 30 seconds + watermark</span>
         </div>
         <div class="summary-item">
-          <span>Full</span>
-          <span>Полный трек без watermark</span>
+          <span data-i18n="summaryFull">Full</span>
+          <span data-i18n="summaryFullDesc">Full track without watermark</span>
         </div>
       </div>
 
       <div class="actions">
-        <button id="renderButton" class="button button-primary">Создать видео</button>
-        <button id="resetButton" class="button button-secondary" type="button">Сбросить</button>
+        <button id="renderButton" class="button button-primary" data-i18n="renderButton">Create Video</button>
+        <button id="resetButton" class="button button-secondary" type="button" data-i18n="resetButton">Reset</button>
       </div>
 
       <div id="statusBox" class="status"></div>
 
-      <div class="footer-note">
-        Рендер может занять немного времени. Не закрывай Mini App сразу после запуска задачи.
+      <div class="footer-note" data-i18n="footerNote">
+        Rendering may take some time. Don't close Mini App right after starting the task.
       </div>
     </section>
   </div>
 
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
