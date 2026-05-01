@@ -1,8 +1,11 @@
 const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
 
 const tg = window.Telegram?.WebApp;
+let userId = null;
+
 if (tg) {
   tg.expand();
+  userId = tg.initDataUnsafe?.user?.id || null;
 }
 
 const audioFileInput = document.getElementById("audioFile");
@@ -43,13 +46,14 @@ const i18n = {
     summaryFullDesc: "Full track without watermark",
     renderButton: "Create Video",
     resetButton: "Reset",
-    footerNote: "Rendering may take some time. Don't close Mini App right after starting the task.",
+    footerNote: "Rendering may take some time. Your video will be sent directly to Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
     queued: "Task queued. Waiting for processing...",
-    processing: "Processing audio...",
-    done: "Done! Your video is ready:",
+    processing: "Processing audio",
+    done: "Done! Video sent to Telegram.",
+    doneDownload: "Done! Your video is ready:",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
@@ -83,13 +87,14 @@ const i18n = {
     summaryFullDesc: "Полный трек без watermark",
     renderButton: "Создать видео",
     resetButton: "Сбросить",
-    footerNote: "Рендер может занять немного времени. Не закрывай Mini App сразу после запуска задачи.",
+    footerNote: "Рендер может занять время. Видео будет отправлено прямо в Telegram чат.",
     noFile: "Пожалуйста, выбери аудиофайл.",
     checkingApi: "Проверка доступности API...",
     uploading: "Загрузка файла...",
-    queued: "Задача поставлена в очередь. Ожидание обработки...",
-    processing: "Обработка аудио...",
-    done: "Готово! Твоё видео:",
+    queued: "Задача в очереди. Ожидание обработки...",
+    processing: "Обработка аудио",
+    done: "Готово! Видео отправлено в Telegram.",
+    doneDownload: "Готово! Твоё видео:",
     failed: "Ошибка рендера",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
@@ -181,7 +186,11 @@ async function uploadAndRender() {
     const formData = new FormData();
     formData.append("file", file);
 
-    const uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
+    let uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
+    
+    if (userId) {
+      uploadUrl += `&user_id=${userId}`;
+    }
 
     const uploadResponse = await fetch(uploadUrl, {
       method: "POST",
@@ -229,24 +238,29 @@ async function uploadAndRender() {
       if (statusData.status === "queued") {
         setStatus(t("queued"), "info");
       } else if (statusData.status === "processing") {
-        setStatus(t("processing"), "info");
+        const percent = statusData.percent || 0;
+        setStatus(`${t("processing")}: ${percent}%`, "info");
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
         setStatus(`${t("failed")}: ${errorText}`, "error");
         return;
       } else if (statusData.status === "done") {
-        const downloadUrl = statusData.download_url
-          ? `${API_BASE}${statusData.download_url}`
-          : null;
+        if (userId) {
+          setStatus(t("done"), "success");
+        } else {
+          const downloadUrl = statusData.download_url
+            ? `${API_BASE}${statusData.download_url}`
+            : null;
 
-        if (!downloadUrl) {
-          throw new Error(t("badResponse"));
+          if (!downloadUrl) {
+            throw new Error(t("badResponse"));
+          }
+
+          setStatusHtml(
+            `<p>${t("doneDownload")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
+            "success"
+          );
         }
-
-        setStatusHtml(
-          `<p>${t("done")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
-          "success"
-        );
         return;
       }
 
