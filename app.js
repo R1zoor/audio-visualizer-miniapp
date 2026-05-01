@@ -6,6 +6,10 @@ let userId = null;
 if (tg) {
   tg.expand();
   userId = tg.initDataUnsafe?.user?.id || null;
+  console.log("tg =", tg);
+  console.log("initData =", tg?.initData);
+  console.log("initDataUnsafe =", tg?.initDataUnsafe);
+  console.log("userId =", userId);
 }
 
 const audioFileInput = document.getElementById("audioFile");
