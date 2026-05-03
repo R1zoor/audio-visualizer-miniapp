@@ -73,11 +73,8 @@ const i18n = {
     styleLabelShort: "Style",
     modeLabelShort: "Mode",
     paletteLabelShort: "Palette",
-    telegramMissing: "Telegram user data was not detected. Open the app from Telegram bot menu.",
-    telegramDebugTitle: "Telegram debug",
-    telegramWebApp: "WebApp",
-    telegramUserId: "User ID",
-    telegramInitData: "Init data"
+    telegramMissingSoft: "Telegram user data was not detected. Render will continue, but history may be unavailable.",
+    telegramDebug: "Telegram debug"
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -133,11 +130,8 @@ const i18n = {
     styleLabelShort: "Стиль",
     modeLabelShort: "Режим",
     paletteLabelShort: "Палитра",
-    telegramMissing: "Не удалось получить данные пользователя Telegram. Открой приложение из меню бота внутри Telegram.",
-    telegramDebugTitle: "Telegram debug",
-    telegramWebApp: "WebApp",
-    telegramUserId: "User ID",
-    telegramInitData: "Init data"
+    telegramMissingSoft: "Данные пользователя Telegram не обнаружены. Рендер продолжится, но история может быть недоступна.",
+    telegramDebug: "Telegram debug"
   }
 };
 
@@ -223,7 +217,17 @@ function initTelegramContext() {
     return;
   }
 
-  tg.expand();
+  try {
+    tg.ready();
+  } catch (e) {
+    console.log("tg.ready() failed", e);
+  }
+
+  try {
+    tg.expand();
+  } catch (e) {
+    console.log("tg.expand() failed", e);
+  }
 
   userId =
     tg.initDataUnsafe?.user?.id ||
@@ -234,6 +238,8 @@ function initTelegramContext() {
 
   console.log("Telegram debug:", {
     hasTelegramObject: !!tg,
+    platform: tg.platform,
+    version: tg.version,
     initData: telegramInitData,
     initDataUnsafe: tg.initDataUnsafe,
     userId
@@ -278,6 +284,8 @@ function renderHistoryItems(items) {
 }
 
 async function loadHistory() {
+  initTelegramContext();
+
   if (!userId) {
     historyNote.textContent = t("historyUnavailable");
     historyList.innerHTML = "";
@@ -343,8 +351,7 @@ async function uploadAndRender() {
     initTelegramContext();
 
     if (!userId && !telegramInitData) {
-      setStatus(t("telegramMissing"), "error");
-      return;
+      setStatus(t("telegramMissingSoft"), "error");
     }
 
     setStatus(t("checkingApi"), "info");
@@ -432,7 +439,23 @@ async function uploadAndRender() {
         await loadHistory();
         return;
       } else if (statusData.status === "done") {
-        setStatus(t("done"), "success");
+        if (userId) {
+          setStatus(t("done"), "success");
+        } else {
+          const downloadUrl = statusData.download_url
+            ? `${API_BASE}${statusData.download_url}`
+            : null;
+
+          if (!downloadUrl) {
+            throw new Error(t("badResponse"));
+          }
+
+          setStatusHtml(
+            `<p>${t("doneDownload")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
+            "success"
+          );
+        }
+
         await loadHistory();
         return;
       }
