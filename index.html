@@ -443,6 +443,20 @@
         </select>
       </div>
 
+      <div class="field" id="customTextField" style="display: none;">
+        <label for="customTextInput" data-i18n="customTextLabel">Title for full video</label>
+        <input
+          id="customTextInput"
+          class="select"
+          type="text"
+          maxlength="80"
+          placeholder="Optional text for full mode"
+        />
+        <div class="hint" data-i18n="customTextHint">
+          Will be shown at the top center only in Full mode. Up to 80 characters.
+        </div>
+      </div>
+
       <div class="summary">
         <div class="summary-item">
           <span data-i18n="summaryDemo">Demo</span>
@@ -482,6 +496,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

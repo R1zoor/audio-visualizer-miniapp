@@ -15,6 +15,8 @@ const langToggle = document.getElementById("langToggle");
 const historyList = document.getElementById("historyList");
 const historyNote = document.getElementById("historyNote");
 const historyRefreshButton = document.getElementById("historyRefreshButton");
+const customTextField = document.getElementById("customTextField");
+const customTextInput = document.getElementById("customTextInput");
 
 let currentLang = "en";
 
@@ -74,7 +76,9 @@ const i18n = {
     modeLabelShort: "Mode",
     paletteLabelShort: "Palette",
     telegramMissingSoft: "Telegram user data was not detected. Render will continue, but history may be unavailable.",
-    telegramDebug: "Telegram debug"
+    telegramDebug: "Telegram debug",
+    customTextLabel: "Title for full video",
+    customTextHint: "Shown at the top center only in Full mode. Up to 80 characters."
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -131,7 +135,9 @@ const i18n = {
     modeLabelShort: "Режим",
     paletteLabelShort: "Палитра",
     telegramMissingSoft: "Данные пользователя Telegram не обнаружены. Рендер продолжится, но история может быть недоступна.",
-    telegramDebug: "Telegram debug"
+    telegramDebug: "Telegram debug",
+    customTextLabel: "Надпись для full‑видео",
+    customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов."
   }
 };
 
@@ -255,13 +261,14 @@ function renderHistoryItems(items) {
 
   historyNote.textContent = "";
 
-  historyList.innerHTML = items.map((item) => {
-    const resultFile = item.result_file || "";
-    const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
-    const statusClass = `chip-status-${item.status}`;
-    const canDownload = item.status === "done" && resultFile;
+  historyList.innerHTML = items
+    .map((item) => {
+      const resultFile = item.result_file || "";
+      const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
+      const statusClass = `chip-status-${item.status}`;
+      const canDownload = item.status === "done" && resultFile;
 
-    return `
+      return `
       <article class="history-item">
         <div class="history-item-top">
           <div class="history-file">${escapeHtml(item.original_filename)}</div>
@@ -280,7 +287,8 @@ function renderHistoryItems(items) {
         </div>
       </article>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 async function loadHistory() {
@@ -334,6 +342,15 @@ async function checkHealth() {
   return response.json();
 }
 
+function updateCustomTextVisibility() {
+  if (!customTextField) return;
+  if (modeSelect.value === "full") {
+    customTextField.style.display = "block";
+  } else {
+    customTextField.style.display = "none";
+  }
+}
+
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
   if (!file) {
@@ -344,6 +361,7 @@ async function uploadAndRender() {
   const style = styleSelect.value;
   const mode = modeSelect.value;
   const palette = paletteSelect.value;
+  const customText = customTextInput ? customTextInput.value.trim() : "";
 
   try {
     renderButton.disabled = true;
@@ -366,6 +384,9 @@ async function uploadAndRender() {
     params.set("style", style);
     params.set("mode", mode);
     params.set("palette", palette);
+    if (customText) {
+      params.set("custom_text", customText);
+    }
 
     if (userId) {
       params.set("user_id", String(userId));
@@ -381,7 +402,9 @@ async function uploadAndRender() {
       uploadUrl,
       userId,
       hasInitData: Boolean(telegramInitData),
-      initDataLength: telegramInitData.length
+      initDataLength: telegramInitData.length,
+      mode,
+      customText
     });
 
     const uploadResponse = await fetch(uploadUrl, {
@@ -478,6 +501,8 @@ function resetForm() {
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
   paletteSelect.value = "default";
+  if (customTextInput) customTextInput.value = "";
+  updateCustomTextVisibility();
   hideStatus();
   setStatus(t("resetDone"), "info");
   setTimeout(hideStatus, 2000);
@@ -486,8 +511,11 @@ function resetForm() {
 langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
+  updateCustomTextVisibility();
   loadHistory();
 });
+
+modeSelect.addEventListener("change", updateCustomTextVisibility);
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
@@ -495,4 +523,5 @@ historyRefreshButton.addEventListener("click", loadHistory);
 
 initTelegramContext();
 applyTranslations();
+updateCustomTextVisibility();
 loadHistory();
