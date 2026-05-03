@@ -1,18 +1,8 @@
 const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
 
-const tg = window.Telegram?.WebApp;
+const tg = window.Telegram?.WebApp || null;
 let userId = null;
 let telegramInitData = "";
-
-if (tg) {
-  tg.expand();
-  userId = tg.initDataUnsafe?.user?.id || null;
-  telegramInitData = tg.initData || "";
-  console.log("tg =", tg);
-  console.log("initData =", tg?.initData);
-  console.log("initDataUnsafe =", tg?.initDataUnsafe);
-  console.log("userId =", userId);
-}
 
 const audioFileInput = document.getElementById("audioFile");
 const styleSelect = document.getElementById("style");
@@ -80,10 +70,14 @@ const i18n = {
     statusQueued: "Queued",
     statusProcessing: "Processing",
     statusFailed: "Failed",
-    fileLabelShort: "File",
     styleLabelShort: "Style",
     modeLabelShort: "Mode",
-    paletteLabelShort: "Palette"
+    paletteLabelShort: "Palette",
+    telegramMissing: "Telegram user data was not detected. Open the app from Telegram bot menu.",
+    telegramDebugTitle: "Telegram debug",
+    telegramWebApp: "WebApp",
+    telegramUserId: "User ID",
+    telegramInitData: "Init data"
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -136,10 +130,14 @@ const i18n = {
     statusQueued: "В очереди",
     statusProcessing: "Обработка",
     statusFailed: "Ошибка",
-    fileLabelShort: "Файл",
     styleLabelShort: "Стиль",
     modeLabelShort: "Режим",
-    paletteLabelShort: "Палитра"
+    paletteLabelShort: "Палитра",
+    telegramMissing: "Не удалось получить данные пользователя Telegram. Открой приложение из меню бота внутри Telegram.",
+    telegramDebugTitle: "Telegram debug",
+    telegramWebApp: "WebApp",
+    telegramUserId: "User ID",
+    telegramInitData: "Init data"
   }
 };
 
@@ -217,6 +215,29 @@ function setStatusHtml(html, type = "info") {
 function hideStatus() {
   statusBox.className = "status";
   statusBox.innerHTML = "";
+}
+
+function initTelegramContext() {
+  if (!tg) {
+    console.log("Telegram WebApp object not found");
+    return;
+  }
+
+  tg.expand();
+
+  userId =
+    tg.initDataUnsafe?.user?.id ||
+    tg.initDataUnsafe?.receiver?.id ||
+    null;
+
+  telegramInitData = tg.initData || "";
+
+  console.log("Telegram debug:", {
+    hasTelegramObject: !!tg,
+    initData: telegramInitData,
+    initDataUnsafe: tg.initDataUnsafe,
+    userId
+  });
 }
 
 function renderHistoryItems(items) {
@@ -319,6 +340,13 @@ async function uploadAndRender() {
   try {
     renderButton.disabled = true;
 
+    initTelegramContext();
+
+    if (!userId && !telegramInitData) {
+      setStatus(t("telegramMissing"), "error");
+      return;
+    }
+
     setStatus(t("checkingApi"), "info");
     await checkHealth();
 
@@ -327,15 +355,27 @@ async function uploadAndRender() {
     const formData = new FormData();
     formData.append("file", file);
 
-    let uploadUrl = `${API_BASE}/upload?style=${encodeURIComponent(style)}&mode=${encodeURIComponent(mode)}&palette=${encodeURIComponent(palette)}`;
+    const params = new URLSearchParams();
+    params.set("style", style);
+    params.set("mode", mode);
+    params.set("palette", palette);
 
     if (userId) {
-      uploadUrl += `&user_id=${userId}`;
+      params.set("user_id", String(userId));
     }
 
     if (telegramInitData) {
-      uploadUrl += `&init_data=${encodeURIComponent(telegramInitData)}`;
+      params.set("init_data", telegramInitData);
     }
+
+    const uploadUrl = `${API_BASE}/upload?${params.toString()}`;
+
+    console.log("Upload debug:", {
+      uploadUrl,
+      userId,
+      hasInitData: Boolean(telegramInitData),
+      initDataLength: telegramInitData.length
+    });
 
     const uploadResponse = await fetch(uploadUrl, {
       method: "POST",
@@ -392,23 +432,7 @@ async function uploadAndRender() {
         await loadHistory();
         return;
       } else if (statusData.status === "done") {
-        if (userId) {
-          setStatus(t("done"), "success");
-        } else {
-          const downloadUrl = statusData.download_url
-            ? `${API_BASE}${statusData.download_url}`
-            : null;
-
-          if (!downloadUrl) {
-            throw new Error(t("badResponse"));
-          }
-
-          setStatusHtml(
-            `<p>${t("doneDownload")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
-            "success"
-          );
-        }
-
+        setStatus(t("done"), "success");
         await loadHistory();
         return;
       }
@@ -446,5 +470,6 @@ renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
 historyRefreshButton.addEventListener("click", loadHistory);
 
+initTelegramContext();
 applyTranslations();
 loadHistory();
