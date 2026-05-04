@@ -1,4 +1,4 @@
-const API_BASE = "https://authentic-size-anywhere-patches.trycloudflare.com";
+const API_BASE = "https://hamilton-zus-stamps-piano.trycloudflare.com";
 
 const tg = window.Telegram?.WebApp || null;
 let userId = null;
