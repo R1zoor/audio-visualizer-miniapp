@@ -8,6 +8,7 @@ const audioFileInput = document.getElementById("audioFile");
 const styleSelect = document.getElementById("style");
 const modeSelect = document.getElementById("mode");
 const paletteSelect = document.getElementById("palette");
+const orientationSelect = document.getElementById("orientation");
 const renderButton = document.getElementById("renderButton");
 const resetButton = document.getElementById("resetButton");
 const statusBox = document.getElementById("statusBox");
@@ -31,6 +32,9 @@ const i18n = {
     styleLabel: "Style",
     modeLabel: "Mode",
     paletteLabel: "Palette",
+    orientationLabel: "Orientation",
+    orientationPortrait: "Portrait (phone)",
+    orientationLandscape: "Landscape",
     styleWaveLine: "Wave Line",
     styleWaveFilled: "Wave Filled",
     styleBars: "Bars",
@@ -90,6 +94,9 @@ const i18n = {
     styleLabel: "Стиль",
     modeLabel: "Режим",
     paletteLabel: "Палитра",
+    orientationLabel: "Ориентация",
+    orientationPortrait: "Портрет (телефон)",
+    orientationLandscape: "Альбомная",
     styleWaveLine: "Линия волны",
     styleWaveFilled: "Заполненная волна",
     styleBars: "Столбцы",
@@ -361,6 +368,7 @@ async function uploadAndRender() {
   const style = styleSelect.value;
   const mode = modeSelect.value;
   const palette = paletteSelect.value;
+  const orientation = orientationSelect ? orientationSelect.value : "portrait";
   const customText = customTextInput ? customTextInput.value.trim() : "";
 
   try {
@@ -384,6 +392,7 @@ async function uploadAndRender() {
     params.set("style", style);
     params.set("mode", mode);
     params.set("palette", palette);
+    params.set("orientation", orientation);
     if (customText) {
       params.set("custom_text", customText);
     }
@@ -404,6 +413,8 @@ async function uploadAndRender() {
       hasInitData: Boolean(telegramInitData),
       initDataLength: telegramInitData.length,
       mode,
+      palette,
+      orientation,
       customText
     });
 
@@ -501,6 +512,7 @@ function resetForm() {
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
   paletteSelect.value = "default";
+  if (orientationSelect) orientationSelect.value = "portrait";
   if (customTextInput) customTextInput.value = "";
   updateCustomTextVisibility();
   hideStatus();
@@ -520,6 +532,10 @@ modeSelect.addEventListener("change", updateCustomTextVisibility);
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
 historyRefreshButton.addEventListener("click", loadHistory);
+
+if (orientationSelect) {
+  orientationSelect.value = "portrait";
+}
 
 initTelegramContext();
 applyTranslations();

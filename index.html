@@ -433,14 +433,24 @@
         </div>
       </div>
 
-      <div class="field">
-        <label for="palette" data-i18n="paletteLabel">Palette</label>
-        <select id="palette" class="select">
-          <option value="default" data-i18n-opt="paletteDefault">Default</option>
-          <option value="neon" data-i18n-opt="paletteNeon">Neon</option>
-          <option value="sunset" data-i18n-opt="paletteSunset">Sunset</option>
-          <option value="pastel" data-i18n-opt="palettePastel">Pastel</option>
-        </select>
+      <div class="row">
+        <div class="field">
+          <label for="palette" data-i18n="paletteLabel">Palette</label>
+          <select id="palette" class="select">
+            <option value="default" data-i18n-opt="paletteDefault">Default</option>
+            <option value="neon" data-i18n-opt="paletteNeon">Neon</option>
+            <option value="sunset" data-i18n-opt="paletteSunset">Sunset</option>
+            <option value="pastel" data-i18n-opt="palettePastel">Pastel</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="orientation" data-i18n="orientationLabel">Orientation</label>
+          <select id="orientation" class="select">
+            <option value="portrait" data-i18n-opt="orientationPortrait">Portrait (phone)</option>
+            <option value="landscape" data-i18n-opt="orientationLandscape">Landscape</option>
+          </select>
+        </div>
       </div>
 
       <div class="field" id="customTextField" style="display: none;">
@@ -496,6 +506,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
