@@ -35,9 +35,6 @@ const renderButton = document.getElementById("renderButton");
 const resetButton = document.getElementById("resetButton");
 const statusBox = document.getElementById("statusBox");
 const langToggle = document.getElementById("langToggle");
-const historyList = document.getElementById("historyList");
-const historyNote = document.getElementById("historyNote");
-const historyRefreshButton = document.getElementById("historyRefreshButton");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
 
@@ -101,34 +98,19 @@ const i18n = {
     summaryBackgroundDim: "Background dim",
     renderButton: "Create Video",
     resetButton: "Reset",
-    footerNote: "Rendering may take some time. Your video will be sent directly to Telegram chat.",
+    footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
     queued: "Task queued. Waiting for processing...",
     processing: "Processing audio",
-    done: "Done! Video sent to Telegram.",
-    doneDownload: "Done! Your video is ready:",
+    doneChat: "Done! Ready MP4 has been sent to your Telegram chat.",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    download: "Download video",
-    historyTitle: "Render History",
-    historyRefresh: "Refresh",
-    historyLoading: "Loading history...",
-    historyEmpty: "No renders yet.",
-    historyUnavailable: "History is available only inside Telegram Mini App.",
-    historyFailed: "Failed to load history.",
-    historyDownload: "Download",
-    statusDone: "Done",
-    statusQueued: "Queued",
-    statusProcessing: "Processing",
-    statusFailed: "Failed",
-    styleLabelShort: "Style",
-    modeLabelShort: "Mode",
-    telegramMissingSoft: "Telegram user data was not detected. Render will continue, but history may be unavailable.",
+    telegramRequired: "Open Mini App from Telegram bot so the finished MP4 can be delivered into chat.",
     customTextLabel: "Title for full video",
     customTextHint: "Shown at the top center only in Full mode. Up to 80 characters.",
     invalidColor: "Invalid HEX color. Use format like #28c7e0."
@@ -172,34 +154,19 @@ const i18n = {
     summaryBackgroundDim: "Затемнение фона",
     renderButton: "Создать видео",
     resetButton: "Сбросить",
-    footerNote: "Рендер может занять время. Видео будет отправлено прямо в Telegram чат.",
+    footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram чат.",
     noFile: "Пожалуйста, выбери аудиофайл.",
     checkingApi: "Проверка доступности API...",
     uploading: "Загрузка файла...",
     queued: "Задача в очереди. Ожидание обработки...",
     processing: "Обработка аудио",
-    done: "Готово! Видео отправлено в Telegram.",
-    doneDownload: "Готово! Твоё видео:",
+    doneChat: "Готово! MP4 отправлен тебе сообщением в Telegram чат.",
     failed: "Ошибка рендера",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    download: "Скачать видео",
-    historyTitle: "История рендеров",
-    historyRefresh: "Обновить",
-    historyLoading: "Загрузка истории...",
-    historyEmpty: "Рендеров пока нет.",
-    historyUnavailable: "История доступна только внутри Telegram Mini App.",
-    historyFailed: "Не удалось загрузить историю.",
-    historyDownload: "Скачать",
-    statusDone: "Готово",
-    statusQueued: "В очереди",
-    statusProcessing: "Обработка",
-    statusFailed: "Ошибка",
-    styleLabelShort: "Стиль",
-    modeLabelShort: "Режим",
-    telegramMissingSoft: "Данные пользователя Telegram не обнаружены. Рендер продолжится, но история может быть недоступна.",
+    telegramRequired: "Открой Mini App именно из Telegram-бота, чтобы готовый MP4 пришёл в чат.",
     customTextLabel: "Надпись для full‑видео",
     customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов.",
     invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0."
@@ -217,28 +184,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(currentLang === "ru" ? "ru-RU" : "en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function translateStatus(status) {
-  if (status === "done") return t("statusDone");
-  if (status === "queued") return t("statusQueued");
-  if (status === "processing") return t("statusProcessing");
-  if (status === "failed") return t("statusFailed");
-  return status;
 }
 
 function applyTranslations() {
@@ -276,13 +221,6 @@ function setStatus(message, type = "info") {
   if (type === "success") statusBox.classList.add("success");
   if (type === "error") statusBox.classList.add("error");
   statusBox.innerHTML = `<p>${message}</p>`;
-}
-
-function setStatusHtml(html, type = "info") {
-  statusBox.className = "status show";
-  if (type === "success") statusBox.classList.add("success");
-  if (type === "error") statusBox.classList.add("error");
-  statusBox.innerHTML = html;
 }
 
 function hideStatus() {
@@ -627,70 +565,8 @@ function restartPreviewLoop() {
   previewAnimationId = requestAnimationFrame(tick);
 }
 
-function renderHistoryItems(items) {
-  if (!items.length) {
-    historyNote.textContent = t("historyEmpty");
-    historyList.innerHTML = "";
-    return;
-  }
-
-  historyNote.textContent = "";
-
-  historyList.innerHTML = items.map((item) => {
-    const resultFile = item.result_file || "";
-    const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
-    const statusClass = `chip-status-${item.status}`;
-    const canDownload = item.status === "done" && resultFile;
-
-    return `
-      <article class="history-item">
-        <div class="history-item-top">
-          <div class="history-file">${escapeHtml(item.original_filename)}</div>
-          <div class="history-date">${escapeHtml(formatDate(item.created_at))}</div>
-        </div>
-
-        <div class="history-meta">
-          <span class="chip ${statusClass}">${escapeHtml(translateStatus(item.status))}</span>
-          <span class="chip">${escapeHtml(t("styleLabelShort"))}: ${escapeHtml(item.style)}</span>
-          <span class="chip">${escapeHtml(t("modeLabelShort"))}: ${escapeHtml(item.mode)}</span>
-        </div>
-
-        <div class="history-actions">
-          ${canDownload ? `<a class="history-link" href="${downloadUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("historyDownload"))}</a>` : ""}
-        </div>
-      </article>
-    `;
-  }).join("");
-}
-
-async function loadHistory() {
-  initTelegramContext();
-
-  if (!userId) {
-    historyNote.textContent = t("historyUnavailable");
-    historyList.innerHTML = "";
-    return;
-  }
-
-  historyNote.textContent = t("historyLoading");
-  historyList.innerHTML = "";
-
-  try {
-    const response = await fetch(`${API_BASE}/history/${userId}?limit=20`);
-    const contentType = response.headers.get("content-type") || "";
-
-    if (!contentType.includes("application/json")) {
-      throw new Error(t("badResponse"));
-    }
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || t("historyFailed"));
-    renderHistoryItems(Array.isArray(data.items) ? data.items : []);
-  } catch (error) {
-    console.error(error);
-    historyNote.textContent = error.message || t("historyFailed");
-    historyList.innerHTML = "";
-  }
+function updateCustomTextVisibility() {
+  customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
 }
 
 async function checkHealth() {
@@ -703,16 +579,18 @@ async function checkHealth() {
   return response.json();
 }
 
-function updateCustomTextVisibility() {
-  customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
-}
-
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
   const backgroundFile = backgroundFileInput?.files?.[0] || null;
 
   if (!file) {
     setStatus(t("noFile"), "error");
+    return;
+  }
+
+  initTelegramContext();
+  if (!userId && !telegramInitData) {
+    setStatus(t("telegramRequired"), "error");
     return;
   }
 
@@ -734,11 +612,6 @@ async function uploadAndRender() {
 
   try {
     renderButton.disabled = true;
-    initTelegramContext();
-
-    if (!userId && !telegramInitData) {
-      setStatus(t("telegramMissingSoft"), "error");
-    }
 
     setStatus(t("checkingApi"), "info");
     await checkHealth();
@@ -754,12 +627,12 @@ async function uploadAndRender() {
     formData.append("background_dim", String(backgroundDim));
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
+    formData.append("user_id", String(userId || ""));
+    formData.append("init_data", telegramInitData || "");
 
     if (milkPreset) formData.append("milk_preset", milkPreset);
     if (backgroundFile) formData.append("background_file", backgroundFile);
     if (customText) formData.append("custom_text", customText);
-    if (userId) formData.append("user_id", String(userId));
-    if (telegramInitData) formData.append("init_data", telegramInitData);
 
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
@@ -780,7 +653,6 @@ async function uploadAndRender() {
 
     const taskId = uploadData.task_id;
     setStatus(t("queued"), "info");
-    await loadHistory();
 
     let attempts = 0;
     const maxAttempts = 180;
@@ -809,22 +681,9 @@ async function uploadAndRender() {
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
         setStatus(`${t("failed")}: ${errorText}`, "error");
-        await loadHistory();
         return;
       } else if (statusData.status === "done") {
-        if (userId) {
-          setStatus(t("done"), "success");
-        } else {
-          const downloadUrl = statusData.download_url ? `${API_BASE}${statusData.download_url}` : null;
-          if (!downloadUrl) throw new Error(t("badResponse"));
-
-          setStatusHtml(
-            `<p>${t("doneDownload")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
-            "success"
-          );
-        }
-
-        await loadHistory();
+        setStatus(t("doneChat"), "success");
         return;
       }
 
@@ -832,7 +691,6 @@ async function uploadAndRender() {
     }
 
     setStatus(t("failed"), "error");
-    await loadHistory();
   } catch (error) {
     console.error(error);
     setStatus(error.message || t("networkError"), "error");
@@ -869,7 +727,6 @@ function resetForm() {
 langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
-  loadHistory();
   restartPreviewLoop();
 });
 
@@ -898,7 +755,6 @@ bindColorPair(accentColorInput, accentColorText, "#7c4dff");
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
-historyRefreshButton.addEventListener("click", loadHistory);
 
 orientationSelect.value = "portrait";
 
@@ -908,4 +764,3 @@ refreshMilkRandom();
 updateEngineUi();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
-loadHistory();
