@@ -43,23 +43,23 @@ const customTextInput = document.getElementById("customTextInput");
 
 let currentLang = "en";
 let isDimPanelOpen = false;
+let visibleMilkPresets = [];
+let previewAnimationId = null;
 
 const milkPresets = [
-  { key: "neon_pulse", name: "Neon Pulse", family: "Pulse", desc: "Bright neon pulse with glowing energy." },
-  { key: "orb_weaver", name: "Orb Weaver", family: "Orb", desc: "Circular center motion with layered glow." },
-  { key: "dark_tunnel", name: "Dark Tunnel", family: "Tunnel", desc: "Deep tunnel feel with bass-driven motion." },
-  { key: "retro_scope", name: "Retro Scope", family: "Scope", desc: "Retro oscilloscope look with soft bloom." },
-  { key: "plasma_bloom", name: "Plasma Bloom", family: "Bloom", desc: "Hot plasma waves and smooth expansion." },
-  { key: "aurora_ring", name: "Aurora Ring", family: "Orb", desc: "Colored ring with aurora-like gradients." },
-  { key: "echo_grid", name: "Echo Grid", family: "Grid", desc: "Grid pulse with rhythmic audio glow." },
-  { key: "voltage_flow", name: "Voltage Flow", family: "Pulse", desc: "Electric movement with sharp highlights." },
-  { key: "crystal_beat", name: "Crystal Beat", family: "Glass", desc: "Cool crystal look with elegant motion." },
-  { key: "solar_drift", name: "Solar Drift", family: "Drift", desc: "Warm drifting pulse with cinematic color." },
-  { key: "night_reactor", name: "Night Reactor", family: "Reactor", desc: "Dark reactor core with intense center." },
-  { key: "velvet_pulse", name: "Velvet Pulse", family: "Soft", desc: "Soft premium pulse with restrained glow." }
+  { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
+  { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
+  { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
+  { key: "scope_line", name: "Scope Line", family: "scope", desc: "Classic oscilloscope with bloom." },
+  { key: "mirror_wave", name: "Mirror Wave", family: "mirror_wave", desc: "Mirrored waveform with center symmetry." },
+  { key: "center_bars", name: "Center Bars", family: "center_bars", desc: "Bars rising from the middle line." },
+  { key: "dark_tunnel", name: "Dark Tunnel", family: "tunnel", desc: "Tunnel-like depth and bass motion." },
+  { key: "pulse_core", name: "Pulse Core", family: "pulse_core", desc: "Energy core with expanding audio pulse." },
+  { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic horizon waveform." },
+  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus", desc: "Dense colorful spectral movement." },
+  { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Circular scope orbit with rotating feel." },
+  { key: "spiral_beam", name: "Spiral Beam", family: "spiral_beam", desc: "Spiral energy with dynamic lines." }
 ];
-
-let visibleMilkPresets = [];
 
 const i18n = {
   en: {
@@ -294,7 +294,6 @@ function initTelegramContext() {
   if (!tg) return;
   try { tg.ready(); } catch (_) {}
   try { tg.expand(); } catch (_) {}
-
   userId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.receiver?.id || null;
   telegramInitData = tg.initData || "";
 }
@@ -317,7 +316,6 @@ function updateBackgroundDimUi() {
 function normalizeHexColor(value, fallback) {
   if (!value) return fallback;
   let color = value.trim();
-
   if (!color.startsWith("#")) color = `#${color}`;
 
   if (/^#[0-9a-fA-F]{3}$/.test(color)) {
@@ -327,10 +325,7 @@ function normalizeHexColor(value, fallback) {
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
 
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return color.toLowerCase();
-  }
-
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color.toLowerCase();
   return fallback;
 }
 
@@ -344,12 +339,14 @@ function syncColorInputs(colorInput, textInput, fallback) {
 function bindColorPair(colorInput, textInput, fallback) {
   colorInput.addEventListener("input", () => {
     textInput.value = colorInput.value.toLowerCase();
+    restartPreviewLoop();
   });
 
   textInput.addEventListener("blur", () => {
     const normalized = normalizeHexColor(textInput.value, fallback);
     colorInput.value = normalized;
     textInput.value = normalized;
+    restartPreviewLoop();
   });
 }
 
@@ -375,6 +372,7 @@ function renderMilkPresets(list) {
     card.type = "button";
     card.className = `preset-card ${milkPresetInput.value === preset.key ? "active" : ""}`;
     card.innerHTML = `
+      <canvas class="preset-preview" width="520" height="220" data-preview-family="${escapeHtml(preset.family)}"></canvas>
       <div class="preset-name">${escapeHtml(preset.name)}</div>
       <div class="preset-meta">${escapeHtml(preset.family)}</div>
       <p class="preset-desc">${escapeHtml(preset.desc)}</p>
@@ -382,16 +380,19 @@ function renderMilkPresets(list) {
     card.addEventListener("click", () => {
       milkPresetInput.value = preset.key;
       renderMilkPresets(list);
+      restartPreviewLoop();
     });
     milkPresetGrid.appendChild(card);
   });
+
+  restartPreviewLoop();
 }
 
 function refreshMilkRandom() {
-  const shuffled = shuffleArray(milkPresets).slice(0, 4);
+  const shuffled = shuffleArray(milkPresets).slice(0, 6);
   visibleMilkPresets = shuffled;
   if (!shuffled.find((x) => x.key === milkPresetInput.value)) {
-    milkPresetInput.value = shuffled[0]?.key || "neon_pulse";
+    milkPresetInput.value = shuffled[0]?.key || "ring_neon";
   }
   renderMilkPresets(shuffled);
 }
@@ -425,6 +426,205 @@ function updateEngineUi() {
   if (isMilk && !visibleMilkPresets.length) {
     refreshMilkRandom();
   }
+
+  restartPreviewLoop();
+}
+
+function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
+  ctx.clearRect(0, 0, width, height);
+
+  const bg = ctx.createLinearGradient(0, 0, 0, height);
+  bg.addColorStop(0, "#071018");
+  bg.addColorStop(1, "#0e1823");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalAlpha = active ? 1 : 0.72;
+
+  const cx = width / 2;
+  const cy = height / 2;
+  const amp = active ? 1 : 0.8;
+
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.35);
+  glow.addColorStop(0, `${accent}33`);
+  glow.addColorStop(1, "transparent");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.lineWidth = active ? 3 : 2;
+  ctx.shadowBlur = active ? 14 : 8;
+  ctx.shadowColor = primary;
+  ctx.strokeStyle = primary;
+  ctx.fillStyle = primary;
+
+  if (family === "ring") {
+    const r = 48 + Math.sin(tSec * 2.2) * 8 * amp;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (family === "double_ring") {
+    const r1 = 36 + Math.sin(tSec * 2.1) * 6 * amp;
+    const r2 = 62 + Math.cos(tSec * 1.4) * 5 * amp;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r2, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (family === "radial_bars") {
+    for (let i = 0; i < 48; i += 1) {
+      const a = (Math.PI * 2 * i) / 48;
+      const base = 34;
+      const extra = (10 + 20 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.5))) * amp;
+      const x1 = cx + Math.cos(a) * base;
+      const y1 = cy + Math.sin(a) * base;
+      const x2 = cx + Math.cos(a) * (base + extra);
+      const y2 = cy + Math.sin(a) * (base + extra);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  } else if (family === "scope") {
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 4) {
+      const y = cy + Math.sin(x * 0.03 + tSec * 4) * 22 * amp + Math.sin(x * 0.013 - tSec * 2) * 8;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  } else if (family === "mirror_wave") {
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 5) {
+      const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
+      const y = cy - d;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 5) {
+      const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
+      const y = cy + d;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  } else if (family === "center_bars") {
+    const bars = 44;
+    const barW = width / bars;
+    for (let i = 0; i < bars; i += 1) {
+      const x = i * barW + 1;
+      const h = (16 + 48 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.45))) * amp;
+      ctx.fillRect(x, cy - h / 2, Math.max(barW - 2, 2), h);
+    }
+  } else if (family === "tunnel") {
+    for (let i = 0; i < 6; i += 1) {
+      const r = 24 + i * 18 + Math.sin(tSec * 2.2 + i) * 4 * amp;
+      ctx.strokeStyle = i % 2 ? accent : primary;
+      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (family === "pulse_core") {
+    const r = 18 + Math.sin(tSec * 5) * 6 * amp;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 26, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (family === "horizon_wave") {
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 4) {
+      const y = cy + Math.sin(x * 0.02 + tSec * 2) * 18 * amp;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = primary;
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+  } else if (family === "spectrogram_plus") {
+    const cols = 40;
+    const colW = width / cols;
+    for (let i = 0; i < cols; i += 1) {
+      const h = (18 + 70 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.4))) * amp;
+      const grad = ctx.createLinearGradient(0, cy + h / 2, 0, cy - h / 2);
+      grad.addColorStop(0, accent);
+      grad.addColorStop(1, primary);
+      ctx.fillStyle = grad;
+      ctx.fillRect(i * colW + 1, cy - h / 2, Math.max(colW - 2, 3), h);
+    }
+  } else if (family === "orbital_scope") {
+    const r = 42 + Math.sin(tSec * 2.4) * 6 * amp;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 3; i += 1) {
+      const a = tSec * (1.4 + i * 0.3) + i * 2;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      ctx.beginPath();
+      ctx.arc(x, y, 4 + i, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (family === "spiral_beam") {
+    ctx.strokeStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.beginPath();
+    for (let i = 0; i < 120; i += 1) {
+      const a = i * 0.22 + tSec * 1.8;
+      const r = 2 + i * 0.45;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r * 0.55;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function restartPreviewLoop() {
+  if (previewAnimationId) {
+    cancelAnimationFrame(previewAnimationId);
+    previewAnimationId = null;
+  }
+
+  const canvases = Array.from(document.querySelectorAll(".preset-preview"));
+  if (!canvases.length || engineSelect.value !== "milk") return;
+
+  const primary = syncColorInputs(visualizerColorInput, visualizerColorText, "#28c7e0");
+  const accent = syncColorInputs(accentColorInput, accentColorText, "#7c4dff");
+
+  const tick = (ts) => {
+    const tSec = ts / 1000;
+
+    canvases.forEach((canvas) => {
+      const ctx = canvas.getContext("2d");
+      const family = canvas.dataset.previewFamily || "ring";
+      const isActive = canvas.closest(".preset-card")?.classList.contains("active");
+      drawPreviewScene(ctx, family, canvas.width, canvas.height, tSec, primary, accent, isActive);
+    });
+
+    previewAnimationId = requestAnimationFrame(tick);
+  };
+
+  previewAnimationId = requestAnimationFrame(tick);
 }
 
 function renderHistoryItems(items) {
@@ -484,11 +684,7 @@ async function loadHistory() {
     }
 
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || t("historyFailed"));
-    }
-
+    if (!response.ok) throw new Error(data.detail || t("historyFailed"));
     renderHistoryItems(Array.isArray(data.items) ? data.items : []);
   } catch (error) {
     console.error(error);
@@ -538,7 +734,6 @@ async function uploadAndRender() {
 
   try {
     renderButton.disabled = true;
-
     initTelegramContext();
 
     if (!userId && !telegramInitData) {
@@ -560,25 +755,11 @@ async function uploadAndRender() {
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
 
-    if (milkPreset) {
-      formData.append("milk_preset", milkPreset);
-    }
-
-    if (backgroundFile) {
-      formData.append("background_file", backgroundFile);
-    }
-
-    if (customText) {
-      formData.append("custom_text", customText);
-    }
-
-    if (userId) {
-      formData.append("user_id", String(userId));
-    }
-
-    if (telegramInitData) {
-      formData.append("init_data", telegramInitData);
-    }
+    if (milkPreset) formData.append("milk_preset", milkPreset);
+    if (backgroundFile) formData.append("background_file", backgroundFile);
+    if (customText) formData.append("custom_text", customText);
+    if (userId) formData.append("user_id", String(userId));
+    if (telegramInitData) formData.append("init_data", telegramInitData);
 
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
@@ -595,9 +776,7 @@ async function uploadAndRender() {
       throw new Error(text || t("badResponse"));
     }
 
-    if (!uploadResponse.ok) {
-      throw new Error(uploadData.detail || t("badResponse"));
-    }
+    if (!uploadResponse.ok) throw new Error(uploadData.detail || t("badResponse"));
 
     const taskId = uploadData.task_id;
     setStatus(t("queued"), "info");
@@ -620,9 +799,7 @@ async function uploadAndRender() {
         throw new Error(text || t("badResponse"));
       }
 
-      if (!statusResponse.ok) {
-        throw new Error(statusData.detail || t("badResponse"));
-      }
+      if (!statusResponse.ok) throw new Error(statusData.detail || t("badResponse"));
 
       if (statusData.status === "queued") {
         setStatus(t("queued"), "info");
@@ -671,7 +848,7 @@ function resetForm() {
   isDimPanelOpen = false;
   engineSelect.value = "classic";
   styleSelect.value = "wave_line";
-  milkPresetInput.value = "neon_pulse";
+  milkPresetInput.value = "ring_neon";
   modeSelect.value = "demo";
   orientationSelect.value = "portrait";
   customTextInput.value = "";
@@ -693,6 +870,7 @@ langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
   loadHistory();
+  restartPreviewLoop();
 });
 
 engineSelect.addEventListener("change", updateEngineUi);
