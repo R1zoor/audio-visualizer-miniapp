@@ -42,7 +42,6 @@ let currentLang = "en";
 let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
-let lastTelegramDebug = null;
 
 const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
@@ -61,45 +60,6 @@ const milkPresets = [
 
 const i18n = {
   en: {
-    badge: "● MP3/WAV → MP4 visualizer",
-    title: "Create audio visualization in Telegram",
-    subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
-    sectionTitle: "New Render",
-    fileLabel: "Audio file",
-    fileHint: "MP3 and WAV are supported.",
-    backgroundLabel: "Background image / GIF / video",
-    backgroundHint: "Optional. If empty, default dark background will be used.",
-    toggleDimButton: "Adjust dimming",
-    backgroundDimLabel: "Background dim",
-    backgroundDimHint: "0% = original background, 100% = fully black.",
-    engineLabel: "Engine",
-    engineClassic: "Classic",
-    engineMilk: "MILK",
-    styleLabel: "Style",
-    modeLabel: "Mode",
-    orientationLabel: "Orientation",
-    orientationPortrait: "Portrait (phone)",
-    orientationLandscape: "Landscape",
-    styleWaveLine: "Wave Line",
-    styleWaveFilled: "Wave Filled",
-    styleBars: "Bars",
-    styleSpectrogram: "Spectrogram",
-    modeDemo: "Demo",
-    modeFull: "Full",
-    milkHint: "Showing a few random presets. Search by name or shuffle to discover more.",
-    shuffleButton: "Shuffle",
-    visualizerColorLabel: "Visualizer color",
-    visualizerColorHint: "Main color for wave, bars or core visualizer.",
-    accentColorLabel: "Accent color",
-    accentColorHint: "Secondary glow / accent color, especially useful for MILK.",
-    summaryDemo: "Demo",
-    summaryDemoDesc: "Up to 30 seconds + watermark",
-    summaryFull: "Full",
-    summaryFullDesc: "Full track without watermark",
-    summaryBackgroundDim: "Background dim",
-    renderButton: "Create Video",
-    resetButton: "Reset",
-    footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
@@ -111,61 +71,9 @@ const i18n = {
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    telegramRequired: "Telegram context missing. Open Mini App from bot and check debug details below.",
-    customTextLabel: "Title for full video",
-    customTextHint: "Shown at the top center only in Full mode. Up to 80 characters.",
-    invalidColor: "Invalid HEX color. Use format like #28c7e0.",
-    debugTitle: "Telegram debug",
-    tgDetected: "Telegram detected",
-    webAppDetected: "WebApp detected",
-    initDataPresent: "initData present",
-    initDataLength: "initData length",
-    userIdPresent: "userId present",
-    userIdValue: "userId",
-    platform: "platform",
-    version: "version",
-    colorScheme: "colorScheme"
+    invalidColor: "Invalid HEX color. Use format like #28c7e0."
   },
   ru: {
-    badge: "● MP3/WAV → MP4 визуализатор",
-    title: "Создай аудио-визуализацию прямо в Telegram",
-    subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark, а в full — полный MP4 без ограничений.",
-    sectionTitle: "Новый рендер",
-    fileLabel: "Аудиофайл",
-    fileHint: "Поддерживаются MP3 и WAV.",
-    backgroundLabel: "Фон: картинка / GIF / видео",
-    backgroundHint: "Необязательно. Если не выбрать, будет использован стандартный тёмный фон.",
-    toggleDimButton: "Настроить затемнение",
-    backgroundDimLabel: "Затемнение фона",
-    backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
-    engineLabel: "Движок",
-    engineClassic: "Classic",
-    engineMilk: "MILK",
-    styleLabel: "Стиль",
-    modeLabel: "Режим",
-    orientationLabel: "Ориентация",
-    orientationPortrait: "Портрет (телефон)",
-    orientationLandscape: "Альбомная",
-    styleWaveLine: "Линия волны",
-    styleWaveFilled: "Заполненная волна",
-    styleBars: "Столбцы",
-    styleSpectrogram: "Спектрограмма",
-    modeDemo: "Demo",
-    modeFull: "Full",
-    milkHint: "Показывается несколько случайных пресетов. Ищи по имени или перемешай список.",
-    shuffleButton: "Перемешать",
-    visualizerColorLabel: "Цвет визуализатора",
-    visualizerColorHint: "Основной цвет волны, столбцов или центрального визуализатора.",
-    accentColorLabel: "Акцентный цвет",
-    accentColorHint: "Вторичный цвет свечения / акцента, особенно полезен для MILK.",
-    summaryDemo: "Демо",
-    summaryDemoDesc: "До 30 секунд + watermark",
-    summaryFull: "Full",
-    summaryFullDesc: "Полный трек без watermark",
-    summaryBackgroundDim: "Затемнение фона",
-    renderButton: "Создать видео",
-    resetButton: "Сбросить",
-    footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram чат.",
     noFile: "Пожалуйста, выбери аудиофайл.",
     checkingApi: "Проверка доступности API...",
     uploading: "Загрузка файла...",
@@ -177,64 +85,12 @@ const i18n = {
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    telegramRequired: "Контекст Telegram не найден. Открой Mini App из бота и посмотри debug ниже.",
-    customTextLabel: "Надпись для full‑видео",
-    customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов.",
-    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
-    debugTitle: "Telegram debug",
-    tgDetected: "Telegram найден",
-    webAppDetected: "WebApp найден",
-    initDataPresent: "initData есть",
-    initDataLength: "Длина initData",
-    userIdPresent: "userId есть",
-    userIdValue: "userId",
-    platform: "platform",
-    version: "version",
-    colorScheme: "colorScheme"
+    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0."
   }
 };
 
 function t(key) {
-  return i18n[currentLang][key] || key;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function applyTranslations() {
-  document.documentElement.lang = currentLang;
-
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.dataset.i18n;
-    if (i18n[currentLang][key]) el.textContent = i18n[currentLang][key];
-  });
-
-  document.querySelectorAll("[data-i18n-opt]").forEach((el) => {
-    const key = el.dataset.i18nOpt;
-    if (i18n[currentLang][key]) el.textContent = i18n[currentLang][key];
-  });
-
-  if (customTextInput) {
-    customTextInput.placeholder =
-      currentLang === "ru"
-        ? "Необязательный текст для full режима"
-        : "Optional text for full mode";
-  }
-
-  if (milkSearchInput) {
-    milkSearchInput.placeholder =
-      currentLang === "ru"
-        ? "Поиск пресета по имени"
-        : "Search preset by name";
-  }
-
-  langToggle.textContent = currentLang === "en" ? "RU" : "EN";
+  return i18n[currentLang]?.[key] || key;
 }
 
 function setStatus(message, type = "info") {
@@ -244,74 +100,18 @@ function setStatus(message, type = "info") {
   statusBox.innerHTML = `<p>${message}</p>`;
 }
 
-function setStatusHtml(html, type = "info") {
-  statusBox.className = "status show";
-  if (type === "success") statusBox.classList.add("success");
-  if (type === "error") statusBox.classList.add("error");
-  statusBox.innerHTML = html;
-}
-
 function hideStatus() {
   statusBox.className = "status";
   statusBox.innerHTML = "";
 }
 
-function collectTelegramDebug() {
-  const hasTelegram = Boolean(window.Telegram);
-  const hasWebApp = Boolean(window.Telegram?.WebApp);
-  const initDataValue = window.Telegram?.WebApp?.initData || "";
-  const unsafeUser = window.Telegram?.WebApp?.initDataUnsafe?.user || null;
-  const unsafeReceiver = window.Telegram?.WebApp?.initDataUnsafe?.receiver || null;
-  const resolvedUserId = unsafeUser?.id || unsafeReceiver?.id || null;
-
-  return {
-    hasTelegram,
-    hasWebApp,
-    hasInitData: Boolean(initDataValue),
-    initDataLength: initDataValue ? initDataValue.length : 0,
-    hasUserId: Boolean(resolvedUserId),
-    userId: resolvedUserId || "",
-    platform: window.Telegram?.WebApp?.platform || "",
-    version: window.Telegram?.WebApp?.version || "",
-    colorScheme: window.Telegram?.WebApp?.colorScheme || ""
-  };
-}
-
-function renderTelegramDebug(debug) {
-  return `
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
-      <div style="font-weight:700;margin-bottom:8px;">${escapeHtml(t("debugTitle"))}</div>
-      <div>${escapeHtml(t("tgDetected"))}: <b>${debug.hasTelegram ? "yes" : "no"}</b></div>
-      <div>${escapeHtml(t("webAppDetected"))}: <b>${debug.hasWebApp ? "yes" : "no"}</b></div>
-      <div>${escapeHtml(t("initDataPresent"))}: <b>${debug.hasInitData ? "yes" : "no"}</b></div>
-      <div>${escapeHtml(t("initDataLength"))}: <b>${escapeHtml(debug.initDataLength)}</b></div>
-      <div>${escapeHtml(t("userIdPresent"))}: <b>${debug.hasUserId ? "yes" : "no"}</b></div>
-      <div>${escapeHtml(t("userIdValue"))}: <b>${escapeHtml(debug.userId || "-")}</b></div>
-      <div>${escapeHtml(t("platform"))}: <b>${escapeHtml(debug.platform || "-")}</b></div>
-      <div>${escapeHtml(t("version"))}: <b>${escapeHtml(debug.version || "-")}</b></div>
-      <div>${escapeHtml(t("colorScheme"))}: <b>${escapeHtml(debug.colorScheme || "-")}</b></div>
-    </div>
-  `;
-}
-
-function setStatusWithDebug(message, type = "info") {
-  const debug = collectTelegramDebug();
-  lastTelegramDebug = debug;
-  setStatusHtml(`<p>${escapeHtml(message)}</p>${renderTelegramDebug(debug)}`, type);
-}
-
 function initTelegramContext() {
-  if (!tg) {
-    lastTelegramDebug = collectTelegramDebug();
-    return;
-  }
-
+  if (!tg) return;
   try { tg.ready(); } catch (_) {}
   try { tg.expand(); } catch (_) {}
 
   userId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.receiver?.id || null;
   telegramInitData = tg.initData || "";
-  lastTelegramDebug = collectTelegramDebug();
 }
 
 function updateBackgroundDimUi() {
@@ -388,10 +188,10 @@ function renderMilkPresets(list) {
     card.type = "button";
     card.className = `preset-card ${milkPresetInput.value === preset.key ? "active" : ""}`;
     card.innerHTML = `
-      <canvas class="preset-preview" width="520" height="220" data-preview-family="${escapeHtml(preset.family)}"></canvas>
-      <div class="preset-name">${escapeHtml(preset.name)}</div>
-      <div class="preset-meta">${escapeHtml(preset.family)}</div>
-      <p class="preset-desc">${escapeHtml(preset.desc)}</p>
+      <canvas class="preset-preview" width="520" height="220" data-preview-family="${preset.family}"></canvas>
+      <div class="preset-name">${preset.name}</div>
+      <div class="preset-meta">${preset.family}</div>
+      <p class="preset-desc">${preset.desc}</p>
     `;
     card.addEventListener("click", () => {
       milkPresetInput.value = preset.key;
@@ -668,17 +468,6 @@ async function uploadAndRender() {
 
   initTelegramContext();
 
-  const debug = collectTelegramDebug();
-  lastTelegramDebug = debug;
-
-  if (!debug.hasTelegram || !debug.hasWebApp || !debug.hasInitData) {
-    setStatusHtml(
-      `<p>${escapeHtml(t("telegramRequired"))}</p>${renderTelegramDebug(debug)}`,
-      "error"
-    );
-    return;
-  }
-
   const visualizerColor = syncColorInputs(visualizerColorInput, visualizerColorText, "#28c7e0");
   const accentColor = syncColorInputs(accentColorInput, accentColorText, "#7c4dff");
 
@@ -698,10 +487,10 @@ async function uploadAndRender() {
   try {
     renderButton.disabled = true;
 
-    setStatusWithDebug(t("checkingApi"), "info");
+    setStatus(t("checkingApi"), "info");
     await checkHealth();
 
-    setStatusWithDebug(t("uploading"), "info");
+    setStatus(t("uploading"), "info");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -735,15 +524,12 @@ async function uploadAndRender() {
     }
 
     if (!uploadResponse.ok) {
-      setStatusHtml(
-        `<p>${escapeHtml(uploadData.detail || t("badResponse"))}</p>${renderTelegramDebug(debug)}`,
-        "error"
-      );
+      setStatus(uploadData.detail || t("badResponse"), "error");
       return;
     }
 
     const taskId = uploadData.task_id;
-    setStatusWithDebug(t("queued"), "info");
+    setStatus(t("queued"), "info");
 
     let attempts = 0;
     const maxAttempts = 180;
@@ -762,38 +548,32 @@ async function uploadAndRender() {
         throw new Error(text || t("badResponse"));
       }
 
-      if (!statusResponse.ok) throw new Error(statusData.detail || t("badResponse"));
+      if (!statusResponse.ok) {
+        setStatus(statusData.detail || t("badResponse"), "error");
+        return;
+      }
 
       if (statusData.status === "queued") {
-        setStatusWithDebug(t("queued"), "info");
+        setStatus(t("queued"), "info");
       } else if (statusData.status === "processing") {
         const percent = statusData.percent || 0;
-        setStatusWithDebug(`${t("processing")}: ${percent}%`, "info");
+        setStatus(`${t("processing")}: ${percent}%`, "info");
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
-        setStatusHtml(
-          `<p>${escapeHtml(`${t("failed")}: ${errorText}`)}</p>${renderTelegramDebug(debug)}`,
-          "error"
-        );
+        setStatus(`${t("failed")}: ${errorText}`, "error");
         return;
       } else if (statusData.status === "done") {
-        setStatusHtml(
-          `<p>${escapeHtml(t("doneChat"))}</p>${renderTelegramDebug(debug)}`,
-          "success"
-        );
+        setStatus(t("doneChat"), "success");
         return;
       }
 
       attempts += 1;
     }
 
-    setStatusWithDebug(t("failed"), "error");
+    setStatus(t("failed"), "error");
   } catch (error) {
     console.error(error);
-    setStatusHtml(
-      `<p>${escapeHtml(error.message || t("networkError"))}</p>${renderTelegramDebug(collectTelegramDebug())}`,
-      "error"
-    );
+    setStatus(error.message || t("networkError"), "error");
   } finally {
     renderButton.disabled = false;
   }
@@ -820,18 +600,12 @@ function resetForm() {
   updateCustomTextVisibility();
   updateBackgroundDimUi();
   hideStatus();
-  setStatusWithDebug(t("resetDone"), "info");
-  setTimeout(hideStatus, 2500);
+  setStatus(t("resetDone"), "info");
+  setTimeout(hideStatus, 2000);
 }
 
-langToggle.addEventListener("click", () => {
+langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
-  applyTranslations();
-  if (statusBox.classList.contains("show") && lastTelegramDebug) {
-    const currentText = statusBox.querySelector("p")?.textContent || "";
-    setStatusHtml(`<p>${escapeHtml(currentText)}</p>${renderTelegramDebug(lastTelegramDebug)}`, statusBox.classList.contains("error") ? "error" : statusBox.classList.contains("success") ? "success" : "info");
-  }
-  restartPreviewLoop();
 });
 
 engineSelect.addEventListener("change", updateEngineUi);
@@ -863,9 +637,7 @@ resetButton.addEventListener("click", resetForm);
 orientationSelect.value = "portrait";
 
 initTelegramContext();
-applyTranslations();
 refreshMilkRandom();
 updateEngineUi();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
-setStatusHtml(renderTelegramDebug(collectTelegramDebug()), "info");
