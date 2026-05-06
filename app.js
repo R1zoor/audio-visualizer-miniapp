@@ -5,6 +5,7 @@ let userId = null;
 let telegramInitData = "";
 
 const audioFileInput = document.getElementById("audioFile");
+const backgroundFileInput = document.getElementById("backgroundFile");
 const styleSelect = document.getElementById("style");
 const modeSelect = document.getElementById("mode");
 const paletteSelect = document.getElementById("palette");
@@ -29,6 +30,8 @@ const i18n = {
     sectionTitle: "New Render",
     fileLabel: "Audio file",
     fileHint: "MP3 and WAV are supported.",
+    backgroundLabel: "Background image / GIF / video",
+    backgroundHint: "Optional. If empty, default dark background will be used.",
     styleLabel: "Style",
     modeLabel: "Mode",
     paletteLabel: "Palette",
@@ -91,6 +94,8 @@ const i18n = {
     sectionTitle: "Новый рендер",
     fileLabel: "Аудиофайл",
     fileHint: "Поддерживаются MP3 и WAV.",
+    backgroundLabel: "Фон: картинка / GIF / видео",
+    backgroundHint: "Необязательно. Если не выбрать, будет использован стандартный тёмный фон.",
     styleLabel: "Стиль",
     modeLabel: "Режим",
     paletteLabel: "Палитра",
@@ -201,6 +206,13 @@ function applyTranslations() {
       el.textContent = i18n[currentLang][key];
     }
   });
+
+  if (customTextInput) {
+    customTextInput.placeholder =
+      currentLang === "ru"
+        ? "Необязательный текст для full режима"
+        : "Optional text for full mode";
+  }
 
   langToggle.textContent = currentLang === "en" ? "RU" : "EN";
 }
@@ -360,6 +372,8 @@ function updateCustomTextVisibility() {
 
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
+  const backgroundFile = backgroundFileInput?.files?.[0] || null;
+
   if (!file) {
     setStatus(t("noFile"), "error");
     return;
@@ -387,38 +401,40 @@ async function uploadAndRender() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("style", style);
+    formData.append("mode", mode);
+    formData.append("palette", palette);
+    formData.append("orientation", orientation);
 
-    const params = new URLSearchParams();
-    params.set("style", style);
-    params.set("mode", mode);
-    params.set("palette", palette);
-    params.set("orientation", orientation);
+    if (backgroundFile) {
+      formData.append("background_file", backgroundFile);
+    }
+
     if (customText) {
-      params.set("custom_text", customText);
+      formData.append("custom_text", customText);
     }
 
     if (userId) {
-      params.set("user_id", String(userId));
+      formData.append("user_id", String(userId));
     }
 
     if (telegramInitData) {
-      params.set("init_data", telegramInitData);
+      formData.append("init_data", telegramInitData);
     }
 
-    const uploadUrl = `${API_BASE}/upload?${params.toString()}`;
-
     console.log("Upload debug:", {
-      uploadUrl,
       userId,
       hasInitData: Boolean(telegramInitData),
       initDataLength: telegramInitData.length,
       mode,
       palette,
       orientation,
-      customText
+      customText,
+      hasBackgroundFile: Boolean(backgroundFile),
+      backgroundFileName: backgroundFile?.name || null
     });
 
-    const uploadResponse = await fetch(uploadUrl, {
+    const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
       body: formData
     });
@@ -509,6 +525,7 @@ async function uploadAndRender() {
 
 function resetForm() {
   audioFileInput.value = "";
+  if (backgroundFileInput) backgroundFileInput.value = "";
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
   paletteSelect.value = "default";

@@ -413,6 +413,19 @@
         <div class="hint" data-i18n="fileHint">MP3 and WAV are supported.</div>
       </div>
 
+      <div class="field">
+        <label for="backgroundFile" data-i18n="backgroundLabel">Background image / GIF / video</label>
+        <input
+          id="backgroundFile"
+          class="file-input"
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm,image/*,video/*"
+        />
+        <div class="hint" data-i18n="backgroundHint">
+          Optional. If empty, default dark background will be used.
+        </div>
+      </div>
+
       <div class="row">
         <div class="field">
           <label for="style" data-i18n="styleLabel">Style</label>
@@ -506,6 +519,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
