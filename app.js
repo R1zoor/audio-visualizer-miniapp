@@ -27,15 +27,34 @@ const historyNote = document.getElementById("historyNote");
 const historyRefreshButton = document.getElementById("historyRefreshButton");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
+const previewEmptyState = document.getElementById("previewEmptyState");
+
+const previewCanvases = {
+  wave_line: document.getElementById("preview-wave_line"),
+  wave_filled: document.getElementById("preview-wave_filled"),
+  bars: document.getElementById("preview-bars"),
+  spectrogram: document.getElementById("preview-spectrogram")
+};
 
 let currentLang = "en";
 let isDimPanelOpen = false;
+
+let previewAudioContext = null;
+let previewAnalyser = null;
+let previewSource = null;
+let previewAudioElement = null;
+let previewAnimationId = null;
+let previewStarted = false;
 
 const i18n = {
   en: {
     badge: "● MP3/WAV → MP4 visualizer",
     title: "Create audio visualization in Telegram",
     subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
+    previewSectionTitle: "Visualizer Preview",
+    previewSectionHint: "Select an audio file and compare styles before rendering the final MP4.",
+    previewTapToUse: "Tap to use",
+    previewEmptyState: "Preview will become active after you choose an audio file.",
     sectionTitle: "New Render",
     fileLabel: "Audio file",
     fileHint: "MP3 and WAV are supported.",
@@ -80,6 +99,8 @@ const i18n = {
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
+    previewStartedMessage: "Preview is active. Tap any card to choose the style.",
+    previewFailed: "Preview could not be initialized for this file.",
     download: "Download video",
     historyTitle: "Render History",
     historyRefresh: "Refresh",
@@ -96,7 +117,6 @@ const i18n = {
     modeLabelShort: "Mode",
     paletteLabelShort: "Palette",
     telegramMissingSoft: "Telegram user data was not detected. Render will continue, but history may be unavailable.",
-    telegramDebug: "Telegram debug",
     customTextLabel: "Title for full video",
     customTextHint: "Shown at the top center only in Full mode. Up to 80 characters."
   },
@@ -104,6 +124,10 @@ const i18n = {
     badge: "● MP3/WAV → MP4 визуализатор",
     title: "Создай аудио-визуализацию прямо в Telegram",
     subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark, а в full — полный MP4 без ограничений.",
+    previewSectionTitle: "Предпросмотр визуализаторов",
+    previewSectionHint: "Выбери аудиофайл и сравни стили до финального рендера MP4.",
+    previewTapToUse: "Нажми, чтобы выбрать",
+    previewEmptyState: "Предпросмотр включится после выбора аудиофайла.",
     sectionTitle: "Новый рендер",
     fileLabel: "Аудиофайл",
     fileHint: "Поддерживаются MP3 и WAV.",
@@ -148,6 +172,8 @@ const i18n = {
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
+    previewStartedMessage: "Предпросмотр активен. Нажми на любую карточку, чтобы выбрать стиль.",
+    previewFailed: "Не удалось запустить предпросмотр для этого файла.",
     download: "Скачать видео",
     historyTitle: "История рендеров",
     historyRefresh: "Обновить",
@@ -164,7 +190,6 @@ const i18n = {
     modeLabelShort: "Режим",
     paletteLabelShort: "Палитра",
     telegramMissingSoft: "Данные пользователя Telegram не обнаружены. Рендер продолжится, но история может быть недоступна.",
-    telegramDebug: "Telegram debug",
     customTextLabel: "Надпись для full‑видео",
     customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов."
   }
@@ -321,6 +346,274 @@ function updateBackgroundDimUi() {
   }
 }
 
+function markActivePreview(style) {
+  document.querySelectorAll("[data-style-card]").forEach((card) => {
+    card.classList.toggle("active", card.dataset.styleCard === style);
+  });
+}
+
+function getPaletteColors() {
+  const palette = paletteSelect.value;
+
+  if (palette === "neon") {
+    return {
+      primary: "#00ffe5",
+      secondary: "#7c4dff",
+      backgroundTop: "#050514",
+      backgroundBottom: "#0e1630"
+    };
+  }
+
+  if (palette === "sunset") {
+    return {
+      primary: "#ffb347",
+      secondary: "#ff6f61",
+      backgroundTop: "#1b0b29",
+      backgroundBottom: "#33142d"
+    };
+  }
+
+  if (palette === "pastel") {
+    return {
+      primary: "#aad4ff",
+      secondary: "#f9a8d4",
+      backgroundTop: "#101621",
+      backgroundBottom: "#192336"
+    };
+  }
+
+  return {
+    primary: "#28c7e0",
+    secondary: "#7de3ff",
+    backgroundTop: "#0a0e13",
+    backgroundBottom: "#141c27"
+  };
+}
+
+function clearCanvas(ctx, width, height, colors) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, colors.backgroundTop);
+  gradient.addColorStop(1, colors.backgroundBottom);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawWaveLine(ctx, width, height, waveform, colors) {
+  ctx.strokeStyle = colors.primary;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  const centerY = height / 2;
+  const slice = width / waveform.length;
+
+  for (let i = 0; i < waveform.length; i += 2) {
+    const x = i * slice;
+    const y = centerY + ((waveform[i] - 128) / 128) * (height * 0.32);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+
+  ctx.stroke();
+}
+
+function drawWaveFilled(ctx, width, height, waveform, colors) {
+  const centerY = height / 2;
+  const slice = width / waveform.length;
+
+  ctx.beginPath();
+  ctx.moveTo(0, centerY);
+
+  for (let i = 0; i < waveform.length; i += 2) {
+    const x = i * slice;
+    const y = centerY + ((waveform[i] - 128) / 128) * (height * 0.34);
+    ctx.lineTo(x, y);
+  }
+
+  ctx.lineTo(width, centerY);
+  ctx.closePath();
+
+  const fill = ctx.createLinearGradient(0, 0, 0, height);
+  fill.addColorStop(0, colors.primary);
+  fill.addColorStop(1, "rgba(255,255,255,0.04)");
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.strokeStyle = colors.secondary;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawBars(ctx, width, height, frequency, colors) {
+  const barCount = 42;
+  const step = Math.floor(frequency.length / barCount);
+  const barWidth = width / barCount - 2;
+
+  for (let i = 0; i < barCount; i++) {
+    const value = frequency[i * step] / 255;
+    const barHeight = Math.max(6, value * (height - 18));
+    const x = i * (barWidth + 2);
+    const y = height - barHeight - 6;
+
+    const gradient = ctx.createLinearGradient(0, y, 0, height);
+    gradient.addColorStop(0, colors.primary);
+    gradient.addColorStop(1, colors.secondary);
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, barWidth, barHeight);
+  }
+}
+
+function drawSpectrogram(ctx, width, height, frequency) {
+  const imageData = ctx.getImageData(1, 0, width - 1, height);
+  ctx.putImageData(imageData, 0, 0);
+
+  for (let y = 0; y < height; y++) {
+    const freqIndex = Math.floor((1 - y / height) * (frequency.length - 1));
+    const value = frequency[freqIndex] / 255;
+
+    const r = Math.floor(255 * Math.min(1, value * 1.8));
+    const g = Math.floor(255 * Math.pow(value, 1.2));
+    const b = Math.floor(255 * (1 - value * 0.4));
+
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(width - 1, y, 1, 1);
+  }
+}
+
+function drawIdlePreview(canvas, style) {
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const colors = getPaletteColors();
+
+  clearCanvas(ctx, width, height, colors);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255,255,255,0.42)";
+  ctx.font = "12px Inter, sans-serif";
+  ctx.fillText(style, 12, 20);
+}
+
+function drawAllIdlePreviews() {
+  Object.entries(previewCanvases).forEach(([style, canvas]) => {
+    drawIdlePreview(canvas, style);
+  });
+}
+
+function stopPreview() {
+  if (previewAnimationId) {
+    cancelAnimationFrame(previewAnimationId);
+    previewAnimationId = null;
+  }
+
+  if (previewAudioElement) {
+    previewAudioElement.pause();
+    previewAudioElement.src = "";
+    previewAudioElement = null;
+  }
+
+  if (previewSource) {
+    try {
+      previewSource.disconnect();
+    } catch (_) {}
+    previewSource = null;
+  }
+
+  if (previewAnalyser) {
+    try {
+      previewAnalyser.disconnect();
+    } catch (_) {}
+    previewAnalyser = null;
+  }
+
+  previewStarted = false;
+  drawAllIdlePreviews();
+}
+
+function renderPreviewFrame() {
+  if (!previewAnalyser) return;
+
+  const waveform = new Uint8Array(previewAnalyser.fftSize);
+  const frequency = new Uint8Array(previewAnalyser.frequencyBinCount);
+
+  previewAnalyser.getByteTimeDomainData(waveform);
+  previewAnalyser.getByteFrequencyData(frequency);
+
+  const colors = getPaletteColors();
+
+  Object.entries(previewCanvases).forEach(([style, canvas]) => {
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+
+    clearCanvas(ctx, width, height, colors);
+
+    if (style === "wave_line") {
+      drawWaveLine(ctx, width, height, waveform, colors);
+    } else if (style === "wave_filled") {
+      drawWaveFilled(ctx, width, height, waveform, colors);
+    } else if (style === "bars") {
+      drawBars(ctx, width, height, frequency, colors);
+    } else if (style === "spectrogram") {
+      drawSpectrogram(ctx, width, height, frequency);
+    }
+  });
+
+  previewAnimationId = requestAnimationFrame(renderPreviewFrame);
+}
+
+async function startPreviewFromFile(file) {
+  stopPreview();
+
+  if (!file) {
+    previewEmptyState.textContent = t("previewEmptyState");
+    return;
+  }
+
+  try {
+    const objectUrl = URL.createObjectURL(file);
+
+    if (!previewAudioContext) {
+      previewAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    if (previewAudioContext.state === "suspended") {
+      await previewAudioContext.resume();
+    }
+
+    previewAudioElement = new Audio();
+    previewAudioElement.src = objectUrl;
+    previewAudioElement.loop = true;
+    previewAudioElement.muted = true;
+    previewAudioElement.playsInline = true;
+    previewAudioElement.crossOrigin = "anonymous";
+
+    previewSource = previewAudioContext.createMediaElementSource(previewAudioElement);
+    previewAnalyser = previewAudioContext.createAnalyser();
+    previewAnalyser.fftSize = 1024;
+    previewAnalyser.smoothingTimeConstant = 0.82;
+
+    previewSource.connect(previewAnalyser);
+    previewAnalyser.connect(previewAudioContext.destination);
+
+    await previewAudioElement.play();
+
+    previewStarted = true;
+    previewEmptyState.textContent = t("previewStartedMessage");
+    renderPreviewFrame();
+  } catch (error) {
+    console.error(error);
+    previewEmptyState.textContent = t("previewFailed");
+    drawAllIdlePreviews();
+  }
+}
+
 function renderHistoryItems(items) {
   if (!items.length) {
     historyNote.textContent = t("historyEmpty");
@@ -474,19 +767,6 @@ async function uploadAndRender() {
       formData.append("init_data", telegramInitData);
     }
 
-    console.log("Upload debug:", {
-      userId,
-      hasInitData: Boolean(telegramInitData),
-      initDataLength: telegramInitData.length,
-      mode,
-      palette,
-      orientation,
-      customText,
-      hasBackgroundFile: Boolean(backgroundFile),
-      backgroundFileName: backgroundFile?.name || null,
-      backgroundDim
-    });
-
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
       body: formData
@@ -582,10 +862,13 @@ function resetForm() {
   if (backgroundDimInput) backgroundDimInput.value = "35";
   isDimPanelOpen = false;
   styleSelect.value = "wave_line";
-  modeSelect.value = "demo";
   paletteSelect.value = "default";
+  modeSelect.value = "demo";
   if (orientationSelect) orientationSelect.value = "portrait";
   if (customTextInput) customTextInput.value = "";
+  stopPreview();
+  previewEmptyState.textContent = t("previewEmptyState");
+  markActivePreview("wave_line");
   updateCustomTextVisibility();
   updateBackgroundDimUi();
   hideStatus();
@@ -602,6 +885,31 @@ langToggle.addEventListener("click", () => {
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
+
+paletteSelect.addEventListener("change", () => {
+  if (!previewStarted) {
+    drawAllIdlePreviews();
+  }
+});
+
+styleSelect.addEventListener("change", () => {
+  markActivePreview(styleSelect.value);
+});
+
+if (audioFileInput) {
+  audioFileInput.addEventListener("change", async () => {
+    const file = audioFileInput.files?.[0] || null;
+    await startPreviewFromFile(file);
+  });
+}
+
+document.querySelectorAll("[data-style-card]").forEach((card) => {
+  card.addEventListener("click", () => {
+    const style = card.dataset.styleCard;
+    styleSelect.value = style;
+    markActivePreview(style);
+  });
+});
 
 if (backgroundFileInput) {
   backgroundFileInput.addEventListener("change", () => {
@@ -636,4 +944,6 @@ initTelegramContext();
 applyTranslations();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
+drawAllIdlePreviews();
+markActivePreview("wave_line");
 loadHistory();
