@@ -42,6 +42,7 @@ let currentLang = "en";
 let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
+let lastTelegramDebug = null;
 
 const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
@@ -110,10 +111,20 @@ const i18n = {
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    telegramRequired: "Open Mini App from Telegram bot so the finished MP4 can be delivered into chat.",
+    telegramRequired: "Telegram context missing. Open Mini App from bot and check debug details below.",
     customTextLabel: "Title for full video",
     customTextHint: "Shown at the top center only in Full mode. Up to 80 characters.",
-    invalidColor: "Invalid HEX color. Use format like #28c7e0."
+    invalidColor: "Invalid HEX color. Use format like #28c7e0.",
+    debugTitle: "Telegram debug",
+    tgDetected: "Telegram detected",
+    webAppDetected: "WebApp detected",
+    initDataPresent: "initData present",
+    initDataLength: "initData length",
+    userIdPresent: "userId present",
+    userIdValue: "userId",
+    platform: "platform",
+    version: "version",
+    colorScheme: "colorScheme"
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -166,10 +177,20 @@ const i18n = {
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    telegramRequired: "Открой Mini App именно из Telegram-бота, чтобы готовый MP4 пришёл в чат.",
+    telegramRequired: "Контекст Telegram не найден. Открой Mini App из бота и посмотри debug ниже.",
     customTextLabel: "Надпись для full‑видео",
     customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов.",
-    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0."
+    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
+    debugTitle: "Telegram debug",
+    tgDetected: "Telegram найден",
+    webAppDetected: "WebApp найден",
+    initDataPresent: "initData есть",
+    initDataLength: "Длина initData",
+    userIdPresent: "userId есть",
+    userIdValue: "userId",
+    platform: "platform",
+    version: "version",
+    colorScheme: "colorScheme"
   }
 };
 
@@ -223,17 +244,74 @@ function setStatus(message, type = "info") {
   statusBox.innerHTML = `<p>${message}</p>`;
 }
 
+function setStatusHtml(html, type = "info") {
+  statusBox.className = "status show";
+  if (type === "success") statusBox.classList.add("success");
+  if (type === "error") statusBox.classList.add("error");
+  statusBox.innerHTML = html;
+}
+
 function hideStatus() {
   statusBox.className = "status";
   statusBox.innerHTML = "";
 }
 
+function collectTelegramDebug() {
+  const hasTelegram = Boolean(window.Telegram);
+  const hasWebApp = Boolean(window.Telegram?.WebApp);
+  const initDataValue = window.Telegram?.WebApp?.initData || "";
+  const unsafeUser = window.Telegram?.WebApp?.initDataUnsafe?.user || null;
+  const unsafeReceiver = window.Telegram?.WebApp?.initDataUnsafe?.receiver || null;
+  const resolvedUserId = unsafeUser?.id || unsafeReceiver?.id || null;
+
+  return {
+    hasTelegram,
+    hasWebApp,
+    hasInitData: Boolean(initDataValue),
+    initDataLength: initDataValue ? initDataValue.length : 0,
+    hasUserId: Boolean(resolvedUserId),
+    userId: resolvedUserId || "",
+    platform: window.Telegram?.WebApp?.platform || "",
+    version: window.Telegram?.WebApp?.version || "",
+    colorScheme: window.Telegram?.WebApp?.colorScheme || ""
+  };
+}
+
+function renderTelegramDebug(debug) {
+  return `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
+      <div style="font-weight:700;margin-bottom:8px;">${escapeHtml(t("debugTitle"))}</div>
+      <div>${escapeHtml(t("tgDetected"))}: <b>${debug.hasTelegram ? "yes" : "no"}</b></div>
+      <div>${escapeHtml(t("webAppDetected"))}: <b>${debug.hasWebApp ? "yes" : "no"}</b></div>
+      <div>${escapeHtml(t("initDataPresent"))}: <b>${debug.hasInitData ? "yes" : "no"}</b></div>
+      <div>${escapeHtml(t("initDataLength"))}: <b>${escapeHtml(debug.initDataLength)}</b></div>
+      <div>${escapeHtml(t("userIdPresent"))}: <b>${debug.hasUserId ? "yes" : "no"}</b></div>
+      <div>${escapeHtml(t("userIdValue"))}: <b>${escapeHtml(debug.userId || "-")}</b></div>
+      <div>${escapeHtml(t("platform"))}: <b>${escapeHtml(debug.platform || "-")}</b></div>
+      <div>${escapeHtml(t("version"))}: <b>${escapeHtml(debug.version || "-")}</b></div>
+      <div>${escapeHtml(t("colorScheme"))}: <b>${escapeHtml(debug.colorScheme || "-")}</b></div>
+    </div>
+  `;
+}
+
+function setStatusWithDebug(message, type = "info") {
+  const debug = collectTelegramDebug();
+  lastTelegramDebug = debug;
+  setStatusHtml(`<p>${escapeHtml(message)}</p>${renderTelegramDebug(debug)}`, type);
+}
+
 function initTelegramContext() {
-  if (!tg) return;
+  if (!tg) {
+    lastTelegramDebug = collectTelegramDebug();
+    return;
+  }
+
   try { tg.ready(); } catch (_) {}
   try { tg.expand(); } catch (_) {}
+
   userId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.receiver?.id || null;
   telegramInitData = tg.initData || "";
+  lastTelegramDebug = collectTelegramDebug();
 }
 
 function updateBackgroundDimUi() {
@@ -589,8 +667,15 @@ async function uploadAndRender() {
   }
 
   initTelegramContext();
-  if (!userId && !telegramInitData) {
-    setStatus(t("telegramRequired"), "error");
+
+  const debug = collectTelegramDebug();
+  lastTelegramDebug = debug;
+
+  if (!debug.hasTelegram || !debug.hasWebApp || !debug.hasInitData) {
+    setStatusHtml(
+      `<p>${escapeHtml(t("telegramRequired"))}</p>${renderTelegramDebug(debug)}`,
+      "error"
+    );
     return;
   }
 
@@ -613,10 +698,10 @@ async function uploadAndRender() {
   try {
     renderButton.disabled = true;
 
-    setStatus(t("checkingApi"), "info");
+    setStatusWithDebug(t("checkingApi"), "info");
     await checkHealth();
 
-    setStatus(t("uploading"), "info");
+    setStatusWithDebug(t("uploading"), "info");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -649,10 +734,16 @@ async function uploadAndRender() {
       throw new Error(text || t("badResponse"));
     }
 
-    if (!uploadResponse.ok) throw new Error(uploadData.detail || t("badResponse"));
+    if (!uploadResponse.ok) {
+      setStatusHtml(
+        `<p>${escapeHtml(uploadData.detail || t("badResponse"))}</p>${renderTelegramDebug(debug)}`,
+        "error"
+      );
+      return;
+    }
 
     const taskId = uploadData.task_id;
-    setStatus(t("queued"), "info");
+    setStatusWithDebug(t("queued"), "info");
 
     let attempts = 0;
     const maxAttempts = 180;
@@ -674,26 +765,35 @@ async function uploadAndRender() {
       if (!statusResponse.ok) throw new Error(statusData.detail || t("badResponse"));
 
       if (statusData.status === "queued") {
-        setStatus(t("queued"), "info");
+        setStatusWithDebug(t("queued"), "info");
       } else if (statusData.status === "processing") {
         const percent = statusData.percent || 0;
-        setStatus(`${t("processing")}: ${percent}%`, "info");
+        setStatusWithDebug(`${t("processing")}: ${percent}%`, "info");
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
-        setStatus(`${t("failed")}: ${errorText}`, "error");
+        setStatusHtml(
+          `<p>${escapeHtml(`${t("failed")}: ${errorText}`)}</p>${renderTelegramDebug(debug)}`,
+          "error"
+        );
         return;
       } else if (statusData.status === "done") {
-        setStatus(t("doneChat"), "success");
+        setStatusHtml(
+          `<p>${escapeHtml(t("doneChat"))}</p>${renderTelegramDebug(debug)}`,
+          "success"
+        );
         return;
       }
 
       attempts += 1;
     }
 
-    setStatus(t("failed"), "error");
+    setStatusWithDebug(t("failed"), "error");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || t("networkError"), "error");
+    setStatusHtml(
+      `<p>${escapeHtml(error.message || t("networkError"))}</p>${renderTelegramDebug(collectTelegramDebug())}`,
+      "error"
+    );
   } finally {
     renderButton.disabled = false;
   }
@@ -720,13 +820,17 @@ function resetForm() {
   updateCustomTextVisibility();
   updateBackgroundDimUi();
   hideStatus();
-  setStatus(t("resetDone"), "info");
-  setTimeout(hideStatus, 2000);
+  setStatusWithDebug(t("resetDone"), "info");
+  setTimeout(hideStatus, 2500);
 }
 
 langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
+  if (statusBox.classList.contains("show") && lastTelegramDebug) {
+    const currentText = statusBox.querySelector("p")?.textContent || "";
+    setStatusHtml(`<p>${escapeHtml(currentText)}</p>${renderTelegramDebug(lastTelegramDebug)}`, statusBox.classList.contains("error") ? "error" : statusBox.classList.contains("success") ? "success" : "info");
+  }
   restartPreviewLoop();
 });
 
@@ -764,3 +868,4 @@ refreshMilkRandom();
 updateEngineUi();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
+setStatusHtml(renderTelegramDebug(collectTelegramDebug()), "info");
