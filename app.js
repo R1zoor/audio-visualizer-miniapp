@@ -14,7 +14,16 @@ const backgroundDimValue = document.getElementById("backgroundDimValue");
 const backgroundDimPreview = document.getElementById("backgroundDimPreview");
 const backgroundDimSummary = document.getElementById("backgroundDimSummary");
 const backgroundDimSummaryValue = document.getElementById("backgroundDimSummaryValue");
+
+const engineSelect = document.getElementById("engine");
+const styleField = document.getElementById("styleField");
 const styleSelect = document.getElementById("style");
+const milkPanel = document.getElementById("milkPanel");
+const milkSearchInput = document.getElementById("milkSearchInput");
+const milkShuffleButton = document.getElementById("milkShuffleButton");
+const milkPresetGrid = document.getElementById("milkPresetGrid");
+const milkPresetInput = document.getElementById("milkPresetInput");
+
 const modeSelect = document.getElementById("mode");
 const paletteSelect = document.getElementById("palette");
 const orientationSelect = document.getElementById("orientation");
@@ -27,34 +36,32 @@ const historyNote = document.getElementById("historyNote");
 const historyRefreshButton = document.getElementById("historyRefreshButton");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
-const previewEmptyState = document.getElementById("previewEmptyState");
-
-const previewCanvases = {
-  wave_line: document.getElementById("preview-wave_line"),
-  wave_filled: document.getElementById("preview-wave_filled"),
-  bars: document.getElementById("preview-bars"),
-  spectrogram: document.getElementById("preview-spectrogram")
-};
 
 let currentLang = "en";
 let isDimPanelOpen = false;
 
-let previewAudioContext = null;
-let previewAnalyser = null;
-let previewSource = null;
-let previewAudioElement = null;
-let previewAnimationId = null;
-let previewStarted = false;
+const milkPresets = [
+  { key: "neon_pulse", name: "Neon Pulse", family: "Pulse", desc: "Bright neon pulse with glowing energy." },
+  { key: "orb_weaver", name: "Orb Weaver", family: "Orb", desc: "Circular center motion with layered glow." },
+  { key: "dark_tunnel", name: "Dark Tunnel", family: "Tunnel", desc: "Deep tunnel feel with bass-driven motion." },
+  { key: "retro_scope", name: "Retro Scope", family: "Scope", desc: "Retro oscilloscope look with soft bloom." },
+  { key: "plasma_bloom", name: "Plasma Bloom", family: "Bloom", desc: "Hot plasma waves and smooth expansion." },
+  { key: "aurora_ring", name: "Aurora Ring", family: "Orb", desc: "Colored ring with aurora-like gradients." },
+  { key: "echo_grid", name: "Echo Grid", family: "Grid", desc: "Grid pulse with rhythmic audio glow." },
+  { key: "voltage_flow", name: "Voltage Flow", family: "Pulse", desc: "Electric movement with sharp highlights." },
+  { key: "crystal_beat", name: "Crystal Beat", family: "Glass", desc: "Cool crystal look with elegant motion." },
+  { key: "solar_drift", name: "Solar Drift", family: "Drift", desc: "Warm drifting pulse with cinematic color." },
+  { key: "night_reactor", name: "Night Reactor", family: "Reactor", desc: "Dark reactor core with intense center." },
+  { key: "velvet_pulse", name: "Velvet Pulse", family: "Soft", desc: "Soft premium pulse with restrained glow." }
+];
+
+let visibleMilkPresets = [];
 
 const i18n = {
   en: {
     badge: "● MP3/WAV → MP4 visualizer",
     title: "Create audio visualization in Telegram",
     subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
-    previewSectionTitle: "Visualizer Preview",
-    previewSectionHint: "Select an audio file and compare styles before rendering the final MP4.",
-    previewTapToUse: "Tap to use",
-    previewEmptyState: "Preview will become active after you choose an audio file.",
     sectionTitle: "New Render",
     fileLabel: "Audio file",
     fileHint: "MP3 and WAV are supported.",
@@ -63,6 +70,9 @@ const i18n = {
     toggleDimButton: "Adjust dimming",
     backgroundDimLabel: "Background dim",
     backgroundDimHint: "0% = original background, 100% = fully black.",
+    engineLabel: "Engine",
+    engineClassic: "Classic",
+    engineMilk: "MILK",
     styleLabel: "Style",
     modeLabel: "Mode",
     paletteLabel: "Palette",
@@ -79,6 +89,8 @@ const i18n = {
     paletteNeon: "Neon",
     paletteSunset: "Sunset",
     palettePastel: "Pastel",
+    milkHint: "Showing a few random presets. Search by name or shuffle to discover more.",
+    shuffleButton: "Shuffle",
     summaryDemo: "Demo",
     summaryDemoDesc: "Up to 30 seconds + watermark",
     summaryFull: "Full",
@@ -99,8 +111,6 @@ const i18n = {
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    previewStartedMessage: "Preview is active. Tap any card to choose the style.",
-    previewFailed: "Preview could not be initialized for this file.",
     download: "Download video",
     historyTitle: "Render History",
     historyRefresh: "Refresh",
@@ -124,10 +134,6 @@ const i18n = {
     badge: "● MP3/WAV → MP4 визуализатор",
     title: "Создай аудио-визуализацию прямо в Telegram",
     subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткое превью с watermark, а в full — полный MP4 без ограничений.",
-    previewSectionTitle: "Предпросмотр визуализаторов",
-    previewSectionHint: "Выбери аудиофайл и сравни стили до финального рендера MP4.",
-    previewTapToUse: "Нажми, чтобы выбрать",
-    previewEmptyState: "Предпросмотр включится после выбора аудиофайла.",
     sectionTitle: "Новый рендер",
     fileLabel: "Аудиофайл",
     fileHint: "Поддерживаются MP3 и WAV.",
@@ -136,6 +142,9 @@ const i18n = {
     toggleDimButton: "Настроить затемнение",
     backgroundDimLabel: "Затемнение фона",
     backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
+    engineLabel: "Движок",
+    engineClassic: "Classic",
+    engineMilk: "MILK",
     styleLabel: "Стиль",
     modeLabel: "Режим",
     paletteLabel: "Палитра",
@@ -152,6 +161,8 @@ const i18n = {
     paletteNeon: "Неон",
     paletteSunset: "Закат",
     palettePastel: "Пастель",
+    milkHint: "Показывается несколько случайных пресетов. Ищи по имени или перемешай список.",
+    shuffleButton: "Перемешать",
     summaryDemo: "Демо",
     summaryDemoDesc: "До 30 секунд + watermark",
     summaryFull: "Full",
@@ -172,8 +183,6 @@ const i18n = {
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    previewStartedMessage: "Предпросмотр активен. Нажми на любую карточку, чтобы выбрать стиль.",
-    previewFailed: "Не удалось запустить предпросмотр для этого файла.",
     download: "Скачать видео",
     historyTitle: "История рендеров",
     historyRefresh: "Обновить",
@@ -256,6 +265,13 @@ function applyTranslations() {
         : "Optional text for full mode";
   }
 
+  if (milkSearchInput) {
+    milkSearchInput.placeholder =
+      currentLang === "ru"
+        ? "Поиск пресета по имени"
+        : "Search preset by name";
+  }
+
   langToggle.textContent = currentLang === "en" ? "RU" : "EN";
 }
 
@@ -286,15 +302,11 @@ function initTelegramContext() {
 
   try {
     tg.ready();
-  } catch (e) {
-    console.log("tg.ready() failed", e);
-  }
+  } catch (_) {}
 
   try {
     tg.expand();
-  } catch (e) {
-    console.log("tg.expand() failed", e);
-  }
+  } catch (_) {}
 
   userId =
     tg.initDataUnsafe?.user?.id ||
@@ -302,315 +314,99 @@ function initTelegramContext() {
     null;
 
   telegramInitData = tg.initData || "";
-
-  console.log("Telegram debug:", {
-    hasTelegramObject: !!tg,
-    platform: tg.platform,
-    version: tg.version,
-    initData: telegramInitData,
-    initDataUnsafe: tg.initDataUnsafe,
-    userId
-  });
 }
 
 function updateBackgroundDimUi() {
   const hasBackground = Boolean(backgroundFileInput?.files?.[0]);
   const dimValue = `${backgroundDimInput.value}%`;
 
-  if (backgroundDimValue) {
-    backgroundDimValue.textContent = dimValue;
-  }
+  backgroundDimValue.textContent = dimValue;
+  backgroundDimPreview.textContent = dimValue;
+  backgroundDimSummaryValue.textContent = dimValue;
 
-  if (backgroundDimPreview) {
-    backgroundDimPreview.textContent = dimValue;
-  }
-
-  if (backgroundDimSummaryValue) {
-    backgroundDimSummaryValue.textContent = dimValue;
-  }
-
-  if (backgroundControls) {
-    backgroundControls.style.display = hasBackground ? "flex" : "none";
-  }
-
-  if (backgroundDimSummary) {
-    backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
-  }
+  backgroundControls.style.display = hasBackground ? "flex" : "none";
+  backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
 
   if (!hasBackground) {
     isDimPanelOpen = false;
   }
 
-  if (backgroundDimPanel) {
-    backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
-  }
+  backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
 }
 
-function markActivePreview(style) {
-  document.querySelectorAll("[data-style-card]").forEach((card) => {
-    card.classList.toggle("active", card.dataset.styleCard === style);
-  });
+function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
-function getPaletteColors() {
-  const palette = paletteSelect.value;
+function renderMilkPresets(list) {
+  milkPresetGrid.innerHTML = "";
 
-  if (palette === "neon") {
-    return {
-      primary: "#00ffe5",
-      secondary: "#7c4dff",
-      backgroundTop: "#050514",
-      backgroundBottom: "#0e1630"
-    };
-  }
-
-  if (palette === "sunset") {
-    return {
-      primary: "#ffb347",
-      secondary: "#ff6f61",
-      backgroundTop: "#1b0b29",
-      backgroundBottom: "#33142d"
-    };
-  }
-
-  if (palette === "pastel") {
-    return {
-      primary: "#aad4ff",
-      secondary: "#f9a8d4",
-      backgroundTop: "#101621",
-      backgroundBottom: "#192336"
-    };
-  }
-
-  return {
-    primary: "#28c7e0",
-    secondary: "#7de3ff",
-    backgroundTop: "#0a0e13",
-    backgroundBottom: "#141c27"
-  };
-}
-
-function clearCanvas(ctx, width, height, colors) {
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, colors.backgroundTop);
-  gradient.addColorStop(1, colors.backgroundBottom);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-}
-
-function drawWaveLine(ctx, width, height, waveform, colors) {
-  ctx.strokeStyle = colors.primary;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-
-  const centerY = height / 2;
-  const slice = width / waveform.length;
-
-  for (let i = 0; i < waveform.length; i += 2) {
-    const x = i * slice;
-    const y = centerY + ((waveform[i] - 128) / 128) * (height * 0.32);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-
-  ctx.stroke();
-}
-
-function drawWaveFilled(ctx, width, height, waveform, colors) {
-  const centerY = height / 2;
-  const slice = width / waveform.length;
-
-  ctx.beginPath();
-  ctx.moveTo(0, centerY);
-
-  for (let i = 0; i < waveform.length; i += 2) {
-    const x = i * slice;
-    const y = centerY + ((waveform[i] - 128) / 128) * (height * 0.34);
-    ctx.lineTo(x, y);
-  }
-
-  ctx.lineTo(width, centerY);
-  ctx.closePath();
-
-  const fill = ctx.createLinearGradient(0, 0, 0, height);
-  fill.addColorStop(0, colors.primary);
-  fill.addColorStop(1, "rgba(255,255,255,0.04)");
-  ctx.fillStyle = fill;
-  ctx.fill();
-
-  ctx.strokeStyle = colors.secondary;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-}
-
-function drawBars(ctx, width, height, frequency, colors) {
-  const barCount = 42;
-  const step = Math.floor(frequency.length / barCount);
-  const barWidth = width / barCount - 2;
-
-  for (let i = 0; i < barCount; i++) {
-    const value = frequency[i * step] / 255;
-    const barHeight = Math.max(6, value * (height - 18));
-    const x = i * (barWidth + 2);
-    const y = height - barHeight - 6;
-
-    const gradient = ctx.createLinearGradient(0, y, 0, height);
-    gradient.addColorStop(0, colors.primary);
-    gradient.addColorStop(1, colors.secondary);
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, barWidth, barHeight);
-  }
-}
-
-function drawSpectrogram(ctx, width, height, frequency) {
-  const imageData = ctx.getImageData(1, 0, width - 1, height);
-  ctx.putImageData(imageData, 0, 0);
-
-  for (let y = 0; y < height; y++) {
-    const freqIndex = Math.floor((1 - y / height) * (frequency.length - 1));
-    const value = frequency[freqIndex] / 255;
-
-    const r = Math.floor(255 * Math.min(1, value * 1.8));
-    const g = Math.floor(255 * Math.pow(value, 1.2));
-    const b = Math.floor(255 * (1 - value * 0.4));
-
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    ctx.fillRect(width - 1, y, 1, 1);
-  }
-}
-
-function drawIdlePreview(canvas, style) {
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const colors = getPaletteColors();
-
-  clearCanvas(ctx, width, height, colors);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, height / 2);
-  ctx.lineTo(width, height / 2);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(255,255,255,0.42)";
-  ctx.font = "12px Inter, sans-serif";
-  ctx.fillText(style, 12, 20);
-}
-
-function drawAllIdlePreviews() {
-  Object.entries(previewCanvases).forEach(([style, canvas]) => {
-    drawIdlePreview(canvas, style);
-  });
-}
-
-function stopPreview() {
-  if (previewAnimationId) {
-    cancelAnimationFrame(previewAnimationId);
-    previewAnimationId = null;
-  }
-
-  if (previewAudioElement) {
-    previewAudioElement.pause();
-    previewAudioElement.src = "";
-    previewAudioElement = null;
-  }
-
-  if (previewSource) {
-    try {
-      previewSource.disconnect();
-    } catch (_) {}
-    previewSource = null;
-  }
-
-  if (previewAnalyser) {
-    try {
-      previewAnalyser.disconnect();
-    } catch (_) {}
-    previewAnalyser = null;
-  }
-
-  previewStarted = false;
-  drawAllIdlePreviews();
-}
-
-function renderPreviewFrame() {
-  if (!previewAnalyser) return;
-
-  const waveform = new Uint8Array(previewAnalyser.fftSize);
-  const frequency = new Uint8Array(previewAnalyser.frequencyBinCount);
-
-  previewAnalyser.getByteTimeDomainData(waveform);
-  previewAnalyser.getByteFrequencyData(frequency);
-
-  const colors = getPaletteColors();
-
-  Object.entries(previewCanvases).forEach(([style, canvas]) => {
-    const ctx = canvas.getContext("2d");
-    const width = canvas.width;
-    const height = canvas.height;
-
-    clearCanvas(ctx, width, height, colors);
-
-    if (style === "wave_line") {
-      drawWaveLine(ctx, width, height, waveform, colors);
-    } else if (style === "wave_filled") {
-      drawWaveFilled(ctx, width, height, waveform, colors);
-    } else if (style === "bars") {
-      drawBars(ctx, width, height, frequency, colors);
-    } else if (style === "spectrogram") {
-      drawSpectrogram(ctx, width, height, frequency);
-    }
-  });
-
-  previewAnimationId = requestAnimationFrame(renderPreviewFrame);
-}
-
-async function startPreviewFromFile(file) {
-  stopPreview();
-
-  if (!file) {
-    previewEmptyState.textContent = t("previewEmptyState");
+  if (!list.length) {
+    milkPresetGrid.innerHTML = `
+      <div class="hint">${currentLang === "ru" ? "Ничего не найдено." : "Nothing found."}</div>
+    `;
     return;
   }
 
-  try {
-    const objectUrl = URL.createObjectURL(file);
+  list.forEach((preset) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `preset-card ${milkPresetInput.value === preset.key ? "active" : ""}`;
+    card.innerHTML = `
+      <div class="preset-name">${escapeHtml(preset.name)}</div>
+      <div class="preset-meta">${escapeHtml(preset.family)}</div>
+      <p class="preset-desc">${escapeHtml(preset.desc)}</p>
+    `;
+    card.addEventListener("click", () => {
+      milkPresetInput.value = preset.key;
+      renderMilkPresets(list);
+    });
+    milkPresetGrid.appendChild(card);
+  });
+}
 
-    if (!previewAudioContext) {
-      previewAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
+function refreshMilkRandom() {
+  const shuffled = shuffleArray(milkPresets).slice(0, 4);
+  visibleMilkPresets = shuffled;
+  if (!shuffled.find((x) => x.key === milkPresetInput.value)) {
+    milkPresetInput.value = shuffled[0]?.key || "neon_pulse";
+  }
+  renderMilkPresets(shuffled);
+}
 
-    if (previewAudioContext.state === "suspended") {
-      await previewAudioContext.resume();
-    }
+function filterMilkPresets() {
+  const query = milkSearchInput.value.trim().toLowerCase();
 
-    previewAudioElement = new Audio();
-    previewAudioElement.src = objectUrl;
-    previewAudioElement.loop = true;
-    previewAudioElement.muted = true;
-    previewAudioElement.playsInline = true;
-    previewAudioElement.crossOrigin = "anonymous";
+  if (!query) {
+    renderMilkPresets(visibleMilkPresets);
+    return;
+  }
 
-    previewSource = previewAudioContext.createMediaElementSource(previewAudioElement);
-    previewAnalyser = previewAudioContext.createAnalyser();
-    previewAnalyser.fftSize = 1024;
-    previewAnalyser.smoothingTimeConstant = 0.82;
+  const filtered = milkPresets.filter((preset) =>
+    preset.name.toLowerCase().includes(query) ||
+    preset.key.toLowerCase().includes(query) ||
+    preset.family.toLowerCase().includes(query)
+  );
 
-    previewSource.connect(previewAnalyser);
-    previewAnalyser.connect(previewAudioContext.destination);
+  if (filtered.length && !filtered.find((x) => x.key === milkPresetInput.value)) {
+    milkPresetInput.value = filtered[0].key;
+  }
 
-    await previewAudioElement.play();
+  renderMilkPresets(filtered);
+}
 
-    previewStarted = true;
-    previewEmptyState.textContent = t("previewStartedMessage");
-    renderPreviewFrame();
-  } catch (error) {
-    console.error(error);
-    previewEmptyState.textContent = t("previewFailed");
-    drawAllIdlePreviews();
+function updateEngineUi() {
+  const isMilk = engineSelect.value === "milk";
+  styleField.style.display = isMilk ? "none" : "block";
+  milkPanel.classList.toggle("show", isMilk);
+
+  if (isMilk && !visibleMilkPresets.length) {
+    refreshMilkRandom();
   }
 }
 
@@ -688,9 +484,7 @@ async function loadHistory() {
 }
 
 async function checkHealth() {
-  const response = await fetch(`${API_BASE}/`, {
-    method: "GET"
-  });
+  const response = await fetch(`${API_BASE}/`, { method: "GET" });
 
   if (!response.ok) {
     throw new Error(t("healthFailed"));
@@ -705,12 +499,7 @@ async function checkHealth() {
 }
 
 function updateCustomTextVisibility() {
-  if (!customTextField) return;
-  if (modeSelect.value === "full") {
-    customTextField.style.display = "block";
-  } else {
-    customTextField.style.display = "none";
-  }
+  customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
 }
 
 async function uploadAndRender() {
@@ -722,12 +511,14 @@ async function uploadAndRender() {
     return;
   }
 
-  const style = styleSelect.value;
+  const engine = engineSelect.value;
+  const style = engine === "milk" ? milkPresetInput.value : styleSelect.value;
   const mode = modeSelect.value;
   const palette = paletteSelect.value;
-  const orientation = orientationSelect ? orientationSelect.value : "portrait";
-  const customText = customTextInput ? customTextInput.value.trim() : "";
-  const backgroundDim = backgroundDimInput ? Number(backgroundDimInput.value || 35) : 35;
+  const orientation = orientationSelect.value || "portrait";
+  const customText = customTextInput.value.trim();
+  const backgroundDim = Number(backgroundDimInput.value || 35);
+  const milkPreset = engine === "milk" ? milkPresetInput.value : "";
 
   try {
     renderButton.disabled = true;
@@ -745,11 +536,16 @@ async function uploadAndRender() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("engine", engine);
     formData.append("style", style);
     formData.append("mode", mode);
     formData.append("palette", palette);
     formData.append("orientation", orientation);
     formData.append("background_dim", String(backgroundDim));
+
+    if (milkPreset) {
+      formData.append("milk_preset", milkPreset);
+    }
 
     if (backgroundFile) {
       formData.append("background_file", backgroundFile);
@@ -825,10 +621,7 @@ async function uploadAndRender() {
         if (userId) {
           setStatus(t("done"), "success");
         } else {
-          const downloadUrl = statusData.download_url
-            ? `${API_BASE}${statusData.download_url}`
-            : null;
-
+          const downloadUrl = statusData.download_url ? `${API_BASE}${statusData.download_url}` : null;
           if (!downloadUrl) {
             throw new Error(t("badResponse"));
           }
@@ -858,17 +651,19 @@ async function uploadAndRender() {
 
 function resetForm() {
   audioFileInput.value = "";
-  if (backgroundFileInput) backgroundFileInput.value = "";
-  if (backgroundDimInput) backgroundDimInput.value = "35";
+  backgroundFileInput.value = "";
+  backgroundDimInput.value = "35";
   isDimPanelOpen = false;
+  engineSelect.value = "classic";
   styleSelect.value = "wave_line";
-  paletteSelect.value = "default";
+  milkPresetInput.value = "neon_pulse";
   modeSelect.value = "demo";
-  if (orientationSelect) orientationSelect.value = "portrait";
-  if (customTextInput) customTextInput.value = "";
-  stopPreview();
-  previewEmptyState.textContent = t("previewEmptyState");
-  markActivePreview("wave_line");
+  paletteSelect.value = "default";
+  orientationSelect.value = "portrait";
+  customTextInput.value = "";
+  milkSearchInput.value = "";
+  refreshMilkRandom();
+  updateEngineUi();
   updateCustomTextVisibility();
   updateBackgroundDimUi();
   hideStatus();
@@ -879,71 +674,39 @@ function resetForm() {
 langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
-  updateCustomTextVisibility();
-  updateBackgroundDimUi();
   loadHistory();
 });
 
+engineSelect.addEventListener("change", updateEngineUi);
 modeSelect.addEventListener("change", updateCustomTextVisibility);
 
-paletteSelect.addEventListener("change", () => {
-  if (!previewStarted) {
-    drawAllIdlePreviews();
+backgroundFileInput.addEventListener("change", () => {
+  if (!backgroundFileInput.files?.[0]) {
+    isDimPanelOpen = false;
+    backgroundDimInput.value = "35";
   }
+  updateBackgroundDimUi();
 });
 
-styleSelect.addEventListener("change", () => {
-  markActivePreview(styleSelect.value);
+toggleDimButton.addEventListener("click", () => {
+  isDimPanelOpen = !isDimPanelOpen;
+  updateBackgroundDimUi();
 });
 
-if (audioFileInput) {
-  audioFileInput.addEventListener("change", async () => {
-    const file = audioFileInput.files?.[0] || null;
-    await startPreviewFromFile(file);
-  });
-}
-
-document.querySelectorAll("[data-style-card]").forEach((card) => {
-  card.addEventListener("click", () => {
-    const style = card.dataset.styleCard;
-    styleSelect.value = style;
-    markActivePreview(style);
-  });
-});
-
-if (backgroundFileInput) {
-  backgroundFileInput.addEventListener("change", () => {
-    if (!backgroundFileInput.files?.[0]) {
-      isDimPanelOpen = false;
-      if (backgroundDimInput) backgroundDimInput.value = "35";
-    }
-    updateBackgroundDimUi();
-  });
-}
-
-if (toggleDimButton) {
-  toggleDimButton.addEventListener("click", () => {
-    isDimPanelOpen = !isDimPanelOpen;
-    updateBackgroundDimUi();
-  });
-}
-
-if (backgroundDimInput) {
-  backgroundDimInput.addEventListener("input", updateBackgroundDimUi);
-}
+backgroundDimInput.addEventListener("input", updateBackgroundDimUi);
+milkShuffleButton.addEventListener("click", refreshMilkRandom);
+milkSearchInput.addEventListener("input", filterMilkPresets);
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
 historyRefreshButton.addEventListener("click", loadHistory);
 
-if (orientationSelect) {
-  orientationSelect.value = "portrait";
-}
+orientationSelect.value = "portrait";
 
 initTelegramContext();
 applyTranslations();
+refreshMilkRandom();
+updateEngineUi();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
-drawAllIdlePreviews();
-markActivePreview("wave_line");
 loadHistory();
