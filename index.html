@@ -23,9 +23,7 @@
       --radius: 18px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -282,6 +280,41 @@
       font-size: 13px;
       color: var(--muted);
       line-height: 1.5;
+    }
+
+    .color-panel {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .color-picker {
+      width: 72px;
+      height: 48px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: none;
+      padding: 4px;
+      cursor: pointer;
+    }
+
+    .color-text {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      outline: none;
     }
 
     .summary {
@@ -632,25 +665,39 @@
         </div>
 
         <div class="field">
-          <label for="palette" data-i18n="paletteLabel">Palette</label>
-          <select id="palette" class="select">
-            <option value="default" data-i18n-opt="paletteDefault">Default</option>
-            <option value="neon" data-i18n-opt="paletteNeon">Neon</option>
-            <option value="sunset" data-i18n-opt="paletteSunset">Sunset</option>
-            <option value="pastel" data-i18n-opt="palettePastel">Pastel</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="field">
           <label for="orientation" data-i18n="orientationLabel">Orientation</label>
           <select id="orientation" class="select">
             <option value="portrait" data-i18n-opt="orientationPortrait">Portrait (phone)</option>
             <option value="landscape" data-i18n-opt="orientationLandscape">Landscape</option>
           </select>
         </div>
+      </div>
 
+      <div class="row">
+        <div class="field color-panel">
+          <label for="visualizerColor" data-i18n="visualizerColorLabel">Visualizer color</label>
+          <div class="color-row">
+            <input id="visualizerColor" class="color-picker" type="color" value="#28c7e0" />
+            <input id="visualizerColorText" class="color-text" type="text" value="#28c7e0" />
+          </div>
+          <div class="hint" data-i18n="visualizerColorHint">
+            Main color for wave, bars or core visualizer.
+          </div>
+        </div>
+
+        <div class="field color-panel">
+          <label for="accentColor" data-i18n="accentColorLabel">Accent color</label>
+          <div class="color-row">
+            <input id="accentColor" class="color-picker" type="color" value="#7c4dff" />
+            <input id="accentColorText" class="color-text" type="text" value="#7c4dff" />
+          </div>
+          <div class="hint" data-i18n="accentColorHint">
+            Secondary glow / accent color, especially useful for MILK.
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
         <div class="field" id="customTextField" style="display: none;">
           <label for="customTextInput" data-i18n="customTextLabel">Title for full video</label>
           <input
@@ -709,6 +756,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
