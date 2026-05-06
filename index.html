@@ -39,7 +39,7 @@
 
     .app {
       width: 100%;
-      max-width: 720px;
+      max-width: 760px;
       margin: 0 auto;
       padding: 20px 16px 32px;
     }
@@ -199,6 +199,100 @@
       font-size: 14px;
       font-weight: 700;
       color: var(--text);
+    }
+
+    .preview-card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .preview-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .preview-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0 0 12px;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .preview-option {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 10px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .preview-option:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(40, 199, 224, 0.35);
+    }
+
+    .preview-option.active {
+      border-color: rgba(40, 199, 224, 0.75);
+      box-shadow: 0 0 0 3px rgba(40, 199, 224, 0.10);
+      background: rgba(40, 199, 224, 0.06);
+    }
+
+    .preview-option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .preview-option-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .preview-option-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      border: 1px solid rgba(40, 199, 224, 0.25);
+      background: rgba(40, 199, 224, 0.08);
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+
+    .preview-canvas {
+      width: 100%;
+      height: 110px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #0a0e13, #141c27);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .preview-empty {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+      line-height: 1.5;
     }
 
     .row {
@@ -443,6 +537,10 @@
         grid-template-columns: 1fr 1fr;
       }
 
+      .preview-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
       h1 {
         font-size: 40px;
       }
@@ -461,6 +559,53 @@
       <p class="lead" data-i18n="subtitle">
         Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.
       </p>
+    </section>
+
+    <section class="card">
+      <div class="preview-head">
+        <h2 class="section-title" data-i18n="previewSectionTitle" style="margin: 0;">Visualizer Preview</h2>
+      </div>
+      <p class="preview-note" data-i18n="previewSectionHint">
+        Select an audio file and compare styles before rendering the final MP4.
+      </p>
+
+      <div class="preview-grid">
+        <div class="preview-option active" data-style-card="wave_line">
+          <div class="preview-option-header">
+            <h3 class="preview-option-title" data-i18n="styleWaveLine">Wave Line</h3>
+            <span class="preview-option-badge" data-i18n="previewTapToUse">Tap to use</span>
+          </div>
+          <canvas id="preview-wave_line" class="preview-canvas" width="320" height="110"></canvas>
+        </div>
+
+        <div class="preview-option" data-style-card="wave_filled">
+          <div class="preview-option-header">
+            <h3 class="preview-option-title" data-i18n="styleWaveFilled">Wave Filled</h3>
+            <span class="preview-option-badge" data-i18n="previewTapToUse">Tap to use</span>
+          </div>
+          <canvas id="preview-wave_filled" class="preview-canvas" width="320" height="110"></canvas>
+        </div>
+
+        <div class="preview-option" data-style-card="bars">
+          <div class="preview-option-header">
+            <h3 class="preview-option-title" data-i18n="styleBars">Bars</h3>
+            <span class="preview-option-badge" data-i18n="previewTapToUse">Tap to use</span>
+          </div>
+          <canvas id="preview-bars" class="preview-canvas" width="320" height="110"></canvas>
+        </div>
+
+        <div class="preview-option" data-style-card="spectrogram">
+          <div class="preview-option-header">
+            <h3 class="preview-option-title" data-i18n="styleSpectrogram">Spectrogram</h3>
+            <span class="preview-option-badge" data-i18n="previewTapToUse">Tap to use</span>
+          </div>
+          <canvas id="preview-spectrogram" class="preview-canvas" width="320" height="110"></canvas>
+        </div>
+      </div>
+
+      <div id="previewEmptyState" class="preview-empty" data-i18n="previewEmptyState">
+        Preview will become active after you choose an audio file.
+      </div>
     </section>
 
     <section class="card">
@@ -608,6 +753,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
