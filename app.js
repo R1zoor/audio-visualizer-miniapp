@@ -24,8 +24,12 @@ const milkShuffleButton = document.getElementById("milkShuffleButton");
 const milkPresetGrid = document.getElementById("milkPresetGrid");
 const milkPresetInput = document.getElementById("milkPresetInput");
 
+const visualizerColorInput = document.getElementById("visualizerColor");
+const visualizerColorText = document.getElementById("visualizerColorText");
+const accentColorInput = document.getElementById("accentColor");
+const accentColorText = document.getElementById("accentColorText");
+
 const modeSelect = document.getElementById("mode");
-const paletteSelect = document.getElementById("palette");
 const orientationSelect = document.getElementById("orientation");
 const renderButton = document.getElementById("renderButton");
 const resetButton = document.getElementById("resetButton");
@@ -75,7 +79,6 @@ const i18n = {
     engineMilk: "MILK",
     styleLabel: "Style",
     modeLabel: "Mode",
-    paletteLabel: "Palette",
     orientationLabel: "Orientation",
     orientationPortrait: "Portrait (phone)",
     orientationLandscape: "Landscape",
@@ -85,12 +88,12 @@ const i18n = {
     styleSpectrogram: "Spectrogram",
     modeDemo: "Demo",
     modeFull: "Full",
-    paletteDefault: "Default",
-    paletteNeon: "Neon",
-    paletteSunset: "Sunset",
-    palettePastel: "Pastel",
     milkHint: "Showing a few random presets. Search by name or shuffle to discover more.",
     shuffleButton: "Shuffle",
+    visualizerColorLabel: "Visualizer color",
+    visualizerColorHint: "Main color for wave, bars or core visualizer.",
+    accentColorLabel: "Accent color",
+    accentColorHint: "Secondary glow / accent color, especially useful for MILK.",
     summaryDemo: "Demo",
     summaryDemoDesc: "Up to 30 seconds + watermark",
     summaryFull: "Full",
@@ -125,10 +128,10 @@ const i18n = {
     statusFailed: "Failed",
     styleLabelShort: "Style",
     modeLabelShort: "Mode",
-    paletteLabelShort: "Palette",
     telegramMissingSoft: "Telegram user data was not detected. Render will continue, but history may be unavailable.",
     customTextLabel: "Title for full video",
-    customTextHint: "Shown at the top center only in Full mode. Up to 80 characters."
+    customTextHint: "Shown at the top center only in Full mode. Up to 80 characters.",
+    invalidColor: "Invalid HEX color. Use format like #28c7e0."
   },
   ru: {
     badge: "● MP3/WAV → MP4 визуализатор",
@@ -147,7 +150,6 @@ const i18n = {
     engineMilk: "MILK",
     styleLabel: "Стиль",
     modeLabel: "Режим",
-    paletteLabel: "Палитра",
     orientationLabel: "Ориентация",
     orientationPortrait: "Портрет (телефон)",
     orientationLandscape: "Альбомная",
@@ -157,12 +159,12 @@ const i18n = {
     styleSpectrogram: "Спектрограмма",
     modeDemo: "Demo",
     modeFull: "Full",
-    paletteDefault: "Стандартная",
-    paletteNeon: "Неон",
-    paletteSunset: "Закат",
-    palettePastel: "Пастель",
     milkHint: "Показывается несколько случайных пресетов. Ищи по имени или перемешай список.",
     shuffleButton: "Перемешать",
+    visualizerColorLabel: "Цвет визуализатора",
+    visualizerColorHint: "Основной цвет волны, столбцов или центрального визуализатора.",
+    accentColorLabel: "Акцентный цвет",
+    accentColorHint: "Вторичный цвет свечения / акцента, особенно полезен для MILK.",
     summaryDemo: "Демо",
     summaryDemoDesc: "До 30 секунд + watermark",
     summaryFull: "Full",
@@ -197,10 +199,10 @@ const i18n = {
     statusFailed: "Ошибка",
     styleLabelShort: "Стиль",
     modeLabelShort: "Режим",
-    paletteLabelShort: "Палитра",
     telegramMissingSoft: "Данные пользователя Telegram не обнаружены. Рендер продолжится, но история может быть недоступна.",
     customTextLabel: "Надпись для full‑видео",
-    customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов."
+    customTextHint: "Показывается сверху по центру только в режиме Full. До 80 символов.",
+    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0."
   }
 };
 
@@ -221,9 +223,7 @@ function formatDate(value) {
   if (!value) return "";
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
   const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(currentLang === "ru" ? "ru-RU" : "en-US", {
     year: "numeric",
     month: "2-digit",
@@ -246,16 +246,12 @@ function applyTranslations() {
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n;
-    if (i18n[currentLang][key]) {
-      el.textContent = i18n[currentLang][key];
-    }
+    if (i18n[currentLang][key]) el.textContent = i18n[currentLang][key];
   });
 
   document.querySelectorAll("[data-i18n-opt]").forEach((el) => {
     const key = el.dataset.i18nOpt;
-    if (i18n[currentLang][key]) {
-      el.textContent = i18n[currentLang][key];
-    }
+    if (i18n[currentLang][key]) el.textContent = i18n[currentLang][key];
   });
 
   if (customTextInput) {
@@ -295,24 +291,11 @@ function hideStatus() {
 }
 
 function initTelegramContext() {
-  if (!tg) {
-    console.log("Telegram WebApp object not found");
-    return;
-  }
+  if (!tg) return;
+  try { tg.ready(); } catch (_) {}
+  try { tg.expand(); } catch (_) {}
 
-  try {
-    tg.ready();
-  } catch (_) {}
-
-  try {
-    tg.expand();
-  } catch (_) {}
-
-  userId =
-    tg.initDataUnsafe?.user?.id ||
-    tg.initDataUnsafe?.receiver?.id ||
-    null;
-
+  userId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.receiver?.id || null;
   telegramInitData = tg.initData || "";
 }
 
@@ -327,11 +310,47 @@ function updateBackgroundDimUi() {
   backgroundControls.style.display = hasBackground ? "flex" : "none";
   backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
 
-  if (!hasBackground) {
-    isDimPanelOpen = false;
+  if (!hasBackground) isDimPanelOpen = false;
+  backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
+}
+
+function normalizeHexColor(value, fallback) {
+  if (!value) return fallback;
+  let color = value.trim();
+
+  if (!color.startsWith("#")) color = `#${color}`;
+
+  if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+    const r = color[1];
+    const g = color[2];
+    const b = color[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
 
-  backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+    return color.toLowerCase();
+  }
+
+  return fallback;
+}
+
+function syncColorInputs(colorInput, textInput, fallback) {
+  const normalized = normalizeHexColor(textInput.value || colorInput.value, fallback);
+  colorInput.value = normalized;
+  textInput.value = normalized;
+  return normalized;
+}
+
+function bindColorPair(colorInput, textInput, fallback) {
+  colorInput.addEventListener("input", () => {
+    textInput.value = colorInput.value.toLowerCase();
+  });
+
+  textInput.addEventListener("blur", () => {
+    const normalized = normalizeHexColor(textInput.value, fallback);
+    colorInput.value = normalized;
+    textInput.value = normalized;
+  });
 }
 
 function shuffleArray(arr) {
@@ -347,9 +366,7 @@ function renderMilkPresets(list) {
   milkPresetGrid.innerHTML = "";
 
   if (!list.length) {
-    milkPresetGrid.innerHTML = `
-      <div class="hint">${currentLang === "ru" ? "Ничего не найдено." : "Nothing found."}</div>
-    `;
+    milkPresetGrid.innerHTML = `<div class="hint">${currentLang === "ru" ? "Ничего не найдено." : "Nothing found."}</div>`;
     return;
   }
 
@@ -419,14 +436,13 @@ function renderHistoryItems(items) {
 
   historyNote.textContent = "";
 
-  historyList.innerHTML = items
-    .map((item) => {
-      const resultFile = item.result_file || "";
-      const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
-      const statusClass = `chip-status-${item.status}`;
-      const canDownload = item.status === "done" && resultFile;
+  historyList.innerHTML = items.map((item) => {
+    const resultFile = item.result_file || "";
+    const downloadUrl = resultFile ? `${API_BASE}/download/${encodeURIComponent(resultFile)}` : "";
+    const statusClass = `chip-status-${item.status}`;
+    const canDownload = item.status === "done" && resultFile;
 
-      return `
+    return `
       <article class="history-item">
         <div class="history-item-top">
           <div class="history-file">${escapeHtml(item.original_filename)}</div>
@@ -437,7 +453,6 @@ function renderHistoryItems(items) {
           <span class="chip ${statusClass}">${escapeHtml(translateStatus(item.status))}</span>
           <span class="chip">${escapeHtml(t("styleLabelShort"))}: ${escapeHtml(item.style)}</span>
           <span class="chip">${escapeHtml(t("modeLabelShort"))}: ${escapeHtml(item.mode)}</span>
-          <span class="chip">${escapeHtml(t("paletteLabelShort"))}: ${escapeHtml(item.palette)}</span>
         </div>
 
         <div class="history-actions">
@@ -445,8 +460,7 @@ function renderHistoryItems(items) {
         </div>
       </article>
     `;
-    })
-    .join("");
+  }).join("");
 }
 
 async function loadHistory() {
@@ -485,15 +499,10 @@ async function loadHistory() {
 
 async function checkHealth() {
   const response = await fetch(`${API_BASE}/`, { method: "GET" });
-
-  if (!response.ok) {
-    throw new Error(t("healthFailed"));
-  }
+  if (!response.ok) throw new Error(t("healthFailed"));
 
   const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    throw new Error(t("badResponse"));
-  }
+  if (!contentType.includes("application/json")) throw new Error(t("badResponse"));
 
   return response.json();
 }
@@ -511,10 +520,17 @@ async function uploadAndRender() {
     return;
   }
 
+  const visualizerColor = syncColorInputs(visualizerColorInput, visualizerColorText, "#28c7e0");
+  const accentColor = syncColorInputs(accentColorInput, accentColorText, "#7c4dff");
+
+  if (!/^#[0-9a-f]{6}$/i.test(visualizerColor) || !/^#[0-9a-f]{6}$/i.test(accentColor)) {
+    setStatus(t("invalidColor"), "error");
+    return;
+  }
+
   const engine = engineSelect.value;
   const style = engine === "milk" ? milkPresetInput.value : styleSelect.value;
   const mode = modeSelect.value;
-  const palette = paletteSelect.value;
   const orientation = orientationSelect.value || "portrait";
   const customText = customTextInput.value.trim();
   const backgroundDim = Number(backgroundDimInput.value || 35);
@@ -539,9 +555,10 @@ async function uploadAndRender() {
     formData.append("engine", engine);
     formData.append("style", style);
     formData.append("mode", mode);
-    formData.append("palette", palette);
     formData.append("orientation", orientation);
     formData.append("background_dim", String(backgroundDim));
+    formData.append("visualizer_color", visualizerColor);
+    formData.append("accent_color", accentColor);
 
     if (milkPreset) {
       formData.append("milk_preset", milkPreset);
@@ -622,9 +639,7 @@ async function uploadAndRender() {
           setStatus(t("done"), "success");
         } else {
           const downloadUrl = statusData.download_url ? `${API_BASE}${statusData.download_url}` : null;
-          if (!downloadUrl) {
-            throw new Error(t("badResponse"));
-          }
+          if (!downloadUrl) throw new Error(t("badResponse"));
 
           setStatusHtml(
             `<p>${t("doneDownload")}</p><p><a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">${t("download")}</a></p>`,
@@ -658,10 +673,13 @@ function resetForm() {
   styleSelect.value = "wave_line";
   milkPresetInput.value = "neon_pulse";
   modeSelect.value = "demo";
-  paletteSelect.value = "default";
   orientationSelect.value = "portrait";
   customTextInput.value = "";
   milkSearchInput.value = "";
+  visualizerColorInput.value = "#28c7e0";
+  visualizerColorText.value = "#28c7e0";
+  accentColorInput.value = "#7c4dff";
+  accentColorText.value = "#7c4dff";
   refreshMilkRandom();
   updateEngineUi();
   updateCustomTextVisibility();
@@ -696,6 +714,9 @@ toggleDimButton.addEventListener("click", () => {
 backgroundDimInput.addEventListener("input", updateBackgroundDimUi);
 milkShuffleButton.addEventListener("click", refreshMilkRandom);
 milkSearchInput.addEventListener("input", filterMilkPresets);
+
+bindColorPair(visualizerColorInput, visualizerColorText, "#28c7e0");
+bindColorPair(accentColorInput, accentColorText, "#7c4dff");
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
