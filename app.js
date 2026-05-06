@@ -6,6 +6,14 @@ let telegramInitData = "";
 
 const audioFileInput = document.getElementById("audioFile");
 const backgroundFileInput = document.getElementById("backgroundFile");
+const backgroundControls = document.getElementById("backgroundControls");
+const toggleDimButton = document.getElementById("toggleDimButton");
+const backgroundDimPanel = document.getElementById("backgroundDimPanel");
+const backgroundDimInput = document.getElementById("backgroundDim");
+const backgroundDimValue = document.getElementById("backgroundDimValue");
+const backgroundDimPreview = document.getElementById("backgroundDimPreview");
+const backgroundDimSummary = document.getElementById("backgroundDimSummary");
+const backgroundDimSummaryValue = document.getElementById("backgroundDimSummaryValue");
 const styleSelect = document.getElementById("style");
 const modeSelect = document.getElementById("mode");
 const paletteSelect = document.getElementById("palette");
@@ -21,6 +29,7 @@ const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
 
 let currentLang = "en";
+let isDimPanelOpen = false;
 
 const i18n = {
   en: {
@@ -32,6 +41,9 @@ const i18n = {
     fileHint: "MP3 and WAV are supported.",
     backgroundLabel: "Background image / GIF / video",
     backgroundHint: "Optional. If empty, default dark background will be used.",
+    toggleDimButton: "Adjust dimming",
+    backgroundDimLabel: "Background dim",
+    backgroundDimHint: "0% = original background, 100% = fully black.",
     styleLabel: "Style",
     modeLabel: "Mode",
     paletteLabel: "Palette",
@@ -52,6 +64,7 @@ const i18n = {
     summaryDemoDesc: "Up to 30 seconds + watermark",
     summaryFull: "Full",
     summaryFullDesc: "Full track without watermark",
+    summaryBackgroundDim: "Background dim",
     renderButton: "Create Video",
     resetButton: "Reset",
     footerNote: "Rendering may take some time. Your video will be sent directly to Telegram chat.",
@@ -96,6 +109,9 @@ const i18n = {
     fileHint: "Поддерживаются MP3 и WAV.",
     backgroundLabel: "Фон: картинка / GIF / видео",
     backgroundHint: "Необязательно. Если не выбрать, будет использован стандартный тёмный фон.",
+    toggleDimButton: "Настроить затемнение",
+    backgroundDimLabel: "Затемнение фона",
+    backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
     styleLabel: "Стиль",
     modeLabel: "Режим",
     paletteLabel: "Палитра",
@@ -116,6 +132,7 @@ const i18n = {
     summaryDemoDesc: "До 30 секунд + watermark",
     summaryFull: "Full",
     summaryFullDesc: "Полный трек без watermark",
+    summaryBackgroundDim: "Затемнение фона",
     renderButton: "Создать видео",
     resetButton: "Сбросить",
     footerNote: "Рендер может занять время. Видео будет отправлено прямо в Telegram чат.",
@@ -271,6 +288,39 @@ function initTelegramContext() {
   });
 }
 
+function updateBackgroundDimUi() {
+  const hasBackground = Boolean(backgroundFileInput?.files?.[0]);
+  const dimValue = `${backgroundDimInput.value}%`;
+
+  if (backgroundDimValue) {
+    backgroundDimValue.textContent = dimValue;
+  }
+
+  if (backgroundDimPreview) {
+    backgroundDimPreview.textContent = dimValue;
+  }
+
+  if (backgroundDimSummaryValue) {
+    backgroundDimSummaryValue.textContent = dimValue;
+  }
+
+  if (backgroundControls) {
+    backgroundControls.style.display = hasBackground ? "flex" : "none";
+  }
+
+  if (backgroundDimSummary) {
+    backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
+  }
+
+  if (!hasBackground) {
+    isDimPanelOpen = false;
+  }
+
+  if (backgroundDimPanel) {
+    backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
+  }
+}
+
 function renderHistoryItems(items) {
   if (!items.length) {
     historyNote.textContent = t("historyEmpty");
@@ -384,6 +434,7 @@ async function uploadAndRender() {
   const palette = paletteSelect.value;
   const orientation = orientationSelect ? orientationSelect.value : "portrait";
   const customText = customTextInput ? customTextInput.value.trim() : "";
+  const backgroundDim = backgroundDimInput ? Number(backgroundDimInput.value || 35) : 35;
 
   try {
     renderButton.disabled = true;
@@ -405,6 +456,7 @@ async function uploadAndRender() {
     formData.append("mode", mode);
     formData.append("palette", palette);
     formData.append("orientation", orientation);
+    formData.append("background_dim", String(backgroundDim));
 
     if (backgroundFile) {
       formData.append("background_file", backgroundFile);
@@ -431,7 +483,8 @@ async function uploadAndRender() {
       orientation,
       customText,
       hasBackgroundFile: Boolean(backgroundFile),
-      backgroundFileName: backgroundFile?.name || null
+      backgroundFileName: backgroundFile?.name || null,
+      backgroundDim
     });
 
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
@@ -526,12 +579,15 @@ async function uploadAndRender() {
 function resetForm() {
   audioFileInput.value = "";
   if (backgroundFileInput) backgroundFileInput.value = "";
+  if (backgroundDimInput) backgroundDimInput.value = "35";
+  isDimPanelOpen = false;
   styleSelect.value = "wave_line";
   modeSelect.value = "demo";
   paletteSelect.value = "default";
   if (orientationSelect) orientationSelect.value = "portrait";
   if (customTextInput) customTextInput.value = "";
   updateCustomTextVisibility();
+  updateBackgroundDimUi();
   hideStatus();
   setStatus(t("resetDone"), "info");
   setTimeout(hideStatus, 2000);
@@ -541,10 +597,32 @@ langToggle.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
   updateCustomTextVisibility();
+  updateBackgroundDimUi();
   loadHistory();
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
+
+if (backgroundFileInput) {
+  backgroundFileInput.addEventListener("change", () => {
+    if (!backgroundFileInput.files?.[0]) {
+      isDimPanelOpen = false;
+      if (backgroundDimInput) backgroundDimInput.value = "35";
+    }
+    updateBackgroundDimUi();
+  });
+}
+
+if (toggleDimButton) {
+  toggleDimButton.addEventListener("click", () => {
+    isDimPanelOpen = !isDimPanelOpen;
+    updateBackgroundDimUi();
+  });
+}
+
+if (backgroundDimInput) {
+  backgroundDimInput.addEventListener("input", updateBackgroundDimUi);
+}
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
@@ -557,4 +635,5 @@ if (orientationSelect) {
 initTelegramContext();
 applyTranslations();
 updateCustomTextVisibility();
+updateBackgroundDimUi();
 loadHistory();

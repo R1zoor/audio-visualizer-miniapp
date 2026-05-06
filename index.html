@@ -125,7 +125,8 @@
     }
 
     .select,
-    .file-input {
+    .file-input,
+    .range-input {
       width: 100%;
       border: 1px solid var(--border);
       background: var(--panel-2);
@@ -137,9 +138,67 @@
     }
 
     .select:focus,
-    .file-input:focus {
+    .file-input:focus,
+    .range-input:focus {
       border-color: rgba(40, 199, 224, 0.6);
       box-shadow: 0 0 0 3px rgba(40, 199, 224, 0.12);
+    }
+
+    .inline-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ghost-button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      transition: 0.2s ease;
+    }
+
+    .ghost-button:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .range-panel {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    .range-panel.show {
+      display: block;
+    }
+
+    .range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-input {
+      padding: 10px 12px;
+    }
+
+    .range-value {
+      min-width: 54px;
+      text-align: right;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
     }
 
     .row {
@@ -424,6 +483,32 @@
         <div class="hint" data-i18n="backgroundHint">
           Optional. If empty, default dark background will be used.
         </div>
+
+        <div id="backgroundControls" class="inline-actions" style="display: none;">
+          <button id="toggleDimButton" class="ghost-button" type="button" data-i18n="toggleDimButton">
+            Adjust dimming
+          </button>
+          <div id="backgroundDimPreview" class="hint" style="margin-top: 0;">35%</div>
+        </div>
+
+        <div id="backgroundDimPanel" class="range-panel">
+          <label for="backgroundDim" data-i18n="backgroundDimLabel">Background dim</label>
+          <div class="range-wrap">
+            <input
+              id="backgroundDim"
+              class="range-input"
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value="35"
+            />
+            <div id="backgroundDimValue" class="range-value">35%</div>
+          </div>
+          <div class="hint" data-i18n="backgroundDimHint">
+            0% = original background, 100% = fully black.
+          </div>
+        </div>
       </div>
 
       <div class="row">
@@ -489,6 +574,10 @@
           <span data-i18n="summaryFull">Full</span>
           <span data-i18n="summaryFullDesc">Full track without watermark</span>
         </div>
+        <div class="summary-item" id="backgroundDimSummary" style="display: none;">
+          <span data-i18n="summaryBackgroundDim">Background dim</span>
+          <span id="backgroundDimSummaryValue">35%</span>
+        </div>
       </div>
 
       <div class="actions">
@@ -519,6 +608,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
