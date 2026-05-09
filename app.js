@@ -535,20 +535,14 @@ async function uploadAndRender() {
     console.log("[TMA] Uploading /upload");
 
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("engine", engine);
-    formData.append("style", style);
-    formData.append("mode", mode);
-    formData.append("orientation", orientation);
     formData.append("background_dim", String(backgroundDim));
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
-    formData.append("user_id", String(userId || ""));
-    formData.append("init_data", telegramInitData || "");
-    formData.append("username", telegramUser?.username || "");
-    formData.append("first_name", telegramUser?.first_name || "");
-    formData.append("language_code", telegramUser?.language_code || "");
-
+    if (userId) formData.append("user_id", String(userId));
+    if (telegramInitData) formData.append("init_data", telegramInitData);
+    if (telegramUser?.username) formData.append("username", telegramUser.username);
+    if (telegramUser?.first_name) formData.append("first_name", telegramUser.first_name);
+    if (telegramUser?.language_code) formData.append("language_code", telegramUser.language_code);
     if (milkPreset) formData.append("milk_preset", milkPreset);
     if (backgroundFile) formData.append("background_file", backgroundFile);
     if (customText) formData.append("custom_text", customText);
