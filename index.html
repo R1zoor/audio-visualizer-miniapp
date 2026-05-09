@@ -215,16 +215,26 @@
       line-height: 1.5;
     }
 
+    .milk-only-badge {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(40,199,224,0.08);
+      border: 1px solid rgba(40,199,224,0.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+    }
+
     .milk-panel {
       margin-top: 12px;
       padding: 14px;
       border-radius: 16px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
-      display: none;
-    }
-
-    .milk-panel.show {
       display: block;
     }
 
@@ -422,6 +432,10 @@
       line-height: 1.6;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
     @media (min-width: 640px) {
       .app {
         padding-top: 28px;
@@ -457,6 +471,7 @@
       <p class="lead" data-i18n="subtitle">
         Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.
       </p>
+      <div class="milk-only-badge" data-i18n="milkOnlyBadge">MILK engine only</div>
     </section>
 
     <section class="card">
@@ -507,24 +522,18 @@
         </div>
       </div>
 
-      <div class="row">
-        <div class="field">
-          <label for="engine" data-i18n="engineLabel">Engine</label>
-          <select id="engine" class="select">
-            <option value="classic" data-i18n-opt="engineClassic">Classic</option>
-            <option value="milk" data-i18n-opt="engineMilk">MILK</option>
-          </select>
-        </div>
+      <div class="field hidden">
+        <label for="engine">Engine</label>
+        <select id="engine" class="select">
+          <option value="milk" selected>MILK</option>
+        </select>
+      </div>
 
-        <div class="field" id="styleField">
-          <label for="style" data-i18n="styleLabel">Style</label>
-          <select id="style" class="select">
-            <option value="wave_line" data-i18n-opt="styleWaveLine">Wave Line</option>
-            <option value="wave_filled" data-i18n-opt="styleWaveFilled">Wave Filled</option>
-            <option value="bars" data-i18n-opt="styleBars">Bars</option>
-            <option value="spectrogram" data-i18n-opt="styleSpectrogram">Spectrogram</option>
-          </select>
-        </div>
+      <div id="styleField" class="hidden">
+        <label for="style">Style</label>
+        <select id="style" class="select">
+          <option value="ring_neon" selected>Ring Neon</option>
+        </select>
       </div>
 
       <div id="milkPanel" class="milk-panel">
@@ -578,7 +587,7 @@
             <input id="accentColorText" class="color-text" type="text" value="#7c4dff" />
           </div>
           <div class="hint" data-i18n="accentColorHint">
-            Secondary glow / accent color, especially useful for MILK.
+            Secondary glow / accent color for MILK presets.
           </div>
         </div>
       </div>
@@ -600,6 +609,10 @@
       </div>
 
       <div class="summary">
+        <div class="summary-item">
+          <span data-i18n="summaryEngine">Engine</span>
+          <span data-i18n="summaryEngineDesc">MILK only</span>
+        </div>
         <div class="summary-item">
           <span data-i18n="summaryDemo">Demo</span>
           <span data-i18n="summaryDemoDesc">Up to 30 seconds + watermark</span>
@@ -627,6 +640,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

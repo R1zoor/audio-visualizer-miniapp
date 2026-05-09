@@ -17,7 +17,6 @@ const backgroundDimSummaryValue = document.getElementById("backgroundDimSummaryV
 
 const engineSelect = document.getElementById("engine");
 const styleField = document.getElementById("styleField");
-const styleSelect = document.getElementById("style");
 const milkPanel = document.getElementById("milkPanel");
 const milkSearchInput = document.getElementById("milkSearchInput");
 const milkShuffleButton = document.getElementById("milkShuffleButton");
@@ -235,11 +234,17 @@ function filterMilkPresets() {
 }
 
 function updateEngineUi() {
-  const isMilk = engineSelect.value === "milk";
-  styleField.style.display = isMilk ? "none" : "block";
-  milkPanel.classList.toggle("show", isMilk);
+  if (engineSelect) {
+    engineSelect.value = "milk";
+  }
+  if (styleField) {
+    styleField.style.display = "none";
+  }
+  if (milkPanel) {
+    milkPanel.classList.add("show");
+  }
 
-  if (isMilk && !visibleMilkPresets.length) {
+  if (!visibleMilkPresets.length) {
     refreshMilkRandom();
   }
 
@@ -422,7 +427,7 @@ function restartPreviewLoop() {
   }
 
   const canvases = Array.from(document.querySelectorAll(".preset-preview"));
-  if (!canvases.length || engineSelect.value !== "milk") return;
+  if (!canvases.length) return;
 
   const primary = syncColorInputs(visualizerColorInput, visualizerColorText, "#28c7e0");
   const accent = syncColorInputs(accentColorInput, accentColorText, "#7c4dff");
@@ -476,13 +481,13 @@ async function uploadAndRender() {
     return;
   }
 
-  const engine = engineSelect.value;
-  const style = engine === "milk" ? milkPresetInput.value : styleSelect.value;
+  const engine = "milk";
+  const style = milkPresetInput.value;
   const mode = modeSelect.value;
   const orientation = orientationSelect.value || "portrait";
   const customText = customTextInput.value.trim();
   const backgroundDim = Number(backgroundDimInput.value || 35);
-  const milkPreset = engine === "milk" ? milkPresetInput.value : "";
+  const milkPreset = milkPresetInput.value;
 
   try {
     renderButton.disabled = true;
@@ -584,8 +589,15 @@ function resetForm() {
   backgroundFileInput.value = "";
   backgroundDimInput.value = "35";
   isDimPanelOpen = false;
-  engineSelect.value = "classic";
-  styleSelect.value = "wave_line";
+
+  if (engineSelect) {
+    engineSelect.value = "milk";
+  }
+
+  if (styleField) {
+    styleField.style.display = "none";
+  }
+
   milkPresetInput.value = "ring_neon";
   modeSelect.value = "demo";
   orientationSelect.value = "portrait";
@@ -595,6 +607,7 @@ function resetForm() {
   visualizerColorText.value = "#28c7e0";
   accentColorInput.value = "#7c4dff";
   accentColorText.value = "#7c4dff";
+
   refreshMilkRandom();
   updateEngineUi();
   updateCustomTextVisibility();
@@ -608,7 +621,6 @@ langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
 });
 
-engineSelect.addEventListener("change", updateEngineUi);
 modeSelect.addEventListener("change", updateCustomTextVisibility);
 
 backgroundFileInput.addEventListener("change", () => {
