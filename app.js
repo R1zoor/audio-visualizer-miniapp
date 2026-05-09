@@ -3,6 +3,7 @@ const API_BASE = "https://karma-dsc-parker-sticky.trycloudflare.com";
 const tg = window.Telegram?.WebApp || null;
 let userId = null;
 let telegramInitData = "";
+let telegramUser = null;
 
 const audioFileInput = document.getElementById("audioFile");
 const backgroundFileInput = document.getElementById("backgroundFile");
@@ -109,8 +110,13 @@ function initTelegramContext() {
   try { tg.ready(); } catch (_) {}
   try { tg.expand(); } catch (_) {}
 
-  userId = tg.initDataUnsafe?.user?.id || tg.initDataUnsafe?.receiver?.id || null;
+  telegramUser = tg.initDataUnsafe?.user || tg.initDataUnsafe?.receiver || null;
+  userId = telegramUser?.id || null;
   telegramInitData = tg.initData || "";
+
+  console.log("Telegram user object:", telegramUser);
+  console.log("Telegram userId:", userId);
+  console.log("Telegram initData exists:", Boolean(telegramInitData));
 }
 
 function updateBackgroundDimUi() {
@@ -234,15 +240,9 @@ function filterMilkPresets() {
 }
 
 function updateEngineUi() {
-  if (engineSelect) {
-    engineSelect.value = "milk";
-  }
-  if (styleField) {
-    styleField.style.display = "none";
-  }
-  if (milkPanel) {
-    milkPanel.classList.add("show");
-  }
+  if (engineSelect) engineSelect.value = "milk";
+  if (styleField) styleField.style.display = "none";
+  if (milkPanel) milkPanel.classList.add("show");
 
   if (!visibleMilkPresets.length) {
     refreshMilkRandom();
@@ -497,6 +497,10 @@ async function uploadAndRender() {
 
     setStatus(t("uploading"), "info");
 
+    console.log("Sending user_id:", String(userId || ""));
+    console.log("Sending username:", telegramUser?.username || "");
+    console.log("Sending first_name:", telegramUser?.first_name || "");
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("engine", engine);
@@ -508,6 +512,9 @@ async function uploadAndRender() {
     formData.append("accent_color", accentColor);
     formData.append("user_id", String(userId || ""));
     formData.append("init_data", telegramInitData || "");
+    formData.append("username", telegramUser?.username || "");
+    formData.append("first_name", telegramUser?.first_name || "");
+    formData.append("language_code", telegramUser?.language_code || "");
 
     if (milkPreset) formData.append("milk_preset", milkPreset);
     if (backgroundFile) formData.append("background_file", backgroundFile);
@@ -590,13 +597,8 @@ function resetForm() {
   backgroundDimInput.value = "35";
   isDimPanelOpen = false;
 
-  if (engineSelect) {
-    engineSelect.value = "milk";
-  }
-
-  if (styleField) {
-    styleField.style.display = "none";
-  }
+  if (engineSelect) engineSelect.value = "milk";
+  if (styleField) styleField.style.display = "none";
 
   milkPresetInput.value = "ring_neon";
   modeSelect.value = "demo";
