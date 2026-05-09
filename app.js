@@ -1,4 +1,4 @@
-const API_BASE = "https://attorney-titanium-ward-summit.trycloudflare.com";
+const API_BASE = "https://karma-dsc-parker-sticky.trycloudflare.com";
 
 const tg = window.Telegram?.WebApp || null;
 let userId = null;
