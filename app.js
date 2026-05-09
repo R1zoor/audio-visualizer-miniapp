@@ -52,18 +52,18 @@ let previewAnimationId = null;
 /* Presets */
 
 const milkPresets = [
-  { key: "ring_neon",        name: "Ring Neon",        family: "ring",            desc: "Single glowing ring with soft pulse." },
-  { key: "double_ring",      name: "Double Ring",      family: "double_ring",     desc: "Two layered circles with audio energy." },
-  { key: "radial_bars",      name: "Radial Bars",      family: "radial_bars",     desc: "Circular bars around a bright core." },
-  { key: "scope_line",       name: "Scope Line",       family: "scope",           desc: "Classic oscilloscope with bloom." },
-  { key: "mirror_wave",      name: "Mirror Wave",      family: "mirror_wave",     desc: "Mirrored waveform with center symmetry." },
-  { key: "center_bars",      name: "Center Bars",      family: "center_bars",     desc: "Bars rising from the middle line." },
-  { key: "dark_tunnel",      name: "Dark Tunnel",      family: "tunnel",          desc: "Tunnel-like depth and bass motion." },
-  { key: "pulse_core",       name: "Pulse Core",       family: "pulse_core",      desc: "Energy core with expanding audio pulse." },
-  { key: "horizon_wave",     name: "Horizon Wave",     family: "horizon_wave",    desc: "Wide cinematic horizon waveform." },
-  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus",desc: "Dense colorful spectral movement." },
-  { key: "orbital_scope",    name: "Orbital Scope",    family: "orbital_scope",   desc: "Circular scope orbit with rotating feel." },
-  { key: "spiral_beam",      name: "Spiral Beam",      family: "spiral_beam",     desc: "Spiral energy with dynamic lines." },
+  { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
+  { key: "double_ring", name: "Double Ring", family: "doublering", desc: "Two layered circles with audio energy." },
+  { key: "radial_bars", name: "Radial Bars", family: "radialbars", desc: "Circular bars around a bright core." },
+  { key: "scope_line", name: "Scope Line", family: "scope", desc: "Classic oscilloscope with bloom." },
+  { key: "mirror_wave", name: "Mirror Wave", family: "mirrorwave", desc: "Mirrored waveform with center symmetry." },
+  { key: "center_bars", name: "Center Bars", family: "centerbars", desc: "Bars rising from the middle line." },
+  { key: "dark_tunnel", name: "Dark Tunnel", family: "tunnel", desc: "Tunnel-like depth and bass motion." },
+  { key: "pulse_core", name: "Pulse Core", family: "pulsecore", desc: "Energy core with expanding audio pulse." },
+  { key: "horizon_wave", name: "Horizon Wave", family: "horizonwave", desc: "Wide cinematic horizon waveform." },
+  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogramplus", desc: "Dense colorful spectral movement." },
+  { key: "orbital_scope", name: "Orbital Scope", family: "orbitalscope", desc: "Circular scope orbit with rotating feel." },
+  { key: "spiral_beam", name: "Spiral Beam", family: "spiralbeam", desc: "Spiral energy with dynamic lines." },
 ];
 
 /* i18n */
