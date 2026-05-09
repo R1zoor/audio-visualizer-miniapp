@@ -65,13 +65,14 @@ const i18n = {
     uploading: "Uploading file...",
     queued: "Task queued. Waiting for processing...",
     processing: "Processing audio",
-    doneChat: "Done! Ready MP4 has been sent to your Telegram chat.",
+    doneChat: "Done! MP4 is ready. Download it below.",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
-    invalidColor: "Invalid HEX color. Use format like #28c7e0."
+    invalidColor: "Invalid HEX color. Use format like #28c7e0.",
+    download: "Download MP4"
   },
   ru: {
     noFile: "Пожалуйста, выбери аудиофайл.",
@@ -79,13 +80,14 @@ const i18n = {
     uploading: "Загрузка файла...",
     queued: "Задача в очереди. Ожидание обработки...",
     processing: "Обработка аудио",
-    doneChat: "Готово! MP4 отправлен тебе сообщением в Telegram чат.",
+    doneChat: "Готово! MP4 готов. Скачай файл ниже.",
     failed: "Ошибка рендера",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
-    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0."
+    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
+    download: "Скачать MP4"
   }
 };
 
@@ -113,10 +115,6 @@ function initTelegramContext() {
   telegramUser = tg.initDataUnsafe?.user || tg.initDataUnsafe?.receiver || null;
   userId = telegramUser?.id || null;
   telegramInitData = tg.initData || "";
-
-  console.log("Telegram user object:", telegramUser);
-  console.log("Telegram userId:", userId);
-  console.log("Telegram initData exists:", Boolean(telegramInitData));
 }
 
 function updateBackgroundDimUi() {
@@ -462,6 +460,12 @@ async function checkHealth() {
   return response.json();
 }
 
+function buildDownloadUrl(downloadUrl) {
+  if (!downloadUrl) return "";
+  if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) return downloadUrl;
+  return `${API_BASE}${downloadUrl}`;
+}
+
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
   const backgroundFile = backgroundFileInput?.files?.[0] || null;
@@ -496,10 +500,6 @@ async function uploadAndRender() {
     await checkHealth();
 
     setStatus(t("uploading"), "info");
-
-    console.log("Sending user_id:", String(userId || ""));
-    console.log("Sending username:", telegramUser?.username || "");
-    console.log("Sending first_name:", telegramUser?.first_name || "");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -575,7 +575,16 @@ async function uploadAndRender() {
         setStatus(`${t("failed")}: ${errorText}`, "error");
         return;
       } else if (statusData.status === "done") {
-        setStatus(t("doneChat"), "success");
+        const url = buildDownloadUrl(statusData.download_url);
+        if (!url) {
+          setStatus(t("failed"), "error");
+          return;
+        }
+
+        setStatus(
+          `${t("doneChat")}<br><br><a href="${url}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
+          "success"
+        );
         return;
       }
 
