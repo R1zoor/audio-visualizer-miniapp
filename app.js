@@ -1,9 +1,13 @@
 const API_BASE = "https://karma-dsc-parker-sticky.trycloudflare.com";
 
+/* Telegram context */
+
 const tg = window.Telegram?.WebApp || null;
 let userId = null;
 let telegramInitData = "";
 let telegramUser = null;
+
+/* DOM refs */
 
 const audioFileInput = document.getElementById("audioFile");
 const backgroundFileInput = document.getElementById("backgroundFile");
@@ -38,25 +42,31 @@ const langToggle = document.getElementById("langToggle");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
 
+/* State */
+
 let currentLang = "en";
 let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 
+/* Presets */
+
 const milkPresets = [
-  { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
-  { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
-  { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
-  { key: "scope_line", name: "Scope Line", family: "scope", desc: "Classic oscilloscope with bloom." },
-  { key: "mirror_wave", name: "Mirror Wave", family: "mirror_wave", desc: "Mirrored waveform with center symmetry." },
-  { key: "center_bars", name: "Center Bars", family: "center_bars", desc: "Bars rising from the middle line." },
-  { key: "dark_tunnel", name: "Dark Tunnel", family: "tunnel", desc: "Tunnel-like depth and bass motion." },
-  { key: "pulse_core", name: "Pulse Core", family: "pulse_core", desc: "Energy core with expanding audio pulse." },
-  { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic horizon waveform." },
-  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus", desc: "Dense colorful spectral movement." },
-  { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Circular scope orbit with rotating feel." },
-  { key: "spiral_beam", name: "Spiral Beam", family: "spiral_beam", desc: "Spiral energy with dynamic lines." }
+  { key: "ring_neon",        name: "Ring Neon",        family: "ring",            desc: "Single glowing ring with soft pulse." },
+  { key: "double_ring",      name: "Double Ring",      family: "double_ring",     desc: "Two layered circles with audio energy." },
+  { key: "radial_bars",      name: "Radial Bars",      family: "radial_bars",     desc: "Circular bars around a bright core." },
+  { key: "scope_line",       name: "Scope Line",       family: "scope",           desc: "Classic oscilloscope with bloom." },
+  { key: "mirror_wave",      name: "Mirror Wave",      family: "mirror_wave",     desc: "Mirrored waveform with center symmetry." },
+  { key: "center_bars",      name: "Center Bars",      family: "center_bars",     desc: "Bars rising from the middle line." },
+  { key: "dark_tunnel",      name: "Dark Tunnel",      family: "tunnel",          desc: "Tunnel-like depth and bass motion." },
+  { key: "pulse_core",       name: "Pulse Core",       family: "pulse_core",      desc: "Energy core with expanding audio pulse." },
+  { key: "horizon_wave",     name: "Horizon Wave",     family: "horizon_wave",    desc: "Wide cinematic horizon waveform." },
+  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus",desc: "Dense colorful spectral movement." },
+  { key: "orbital_scope",    name: "Orbital Scope",    family: "orbital_scope",   desc: "Circular scope orbit with rotating feel." },
+  { key: "spiral_beam",      name: "Spiral Beam",      family: "spiral_beam",     desc: "Spiral energy with dynamic lines." },
 ];
+
+/* i18n */
 
 const i18n = {
   en: {
@@ -72,7 +82,7 @@ const i18n = {
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
     invalidColor: "Invalid HEX color. Use format like #28c7e0.",
-    download: "Download MP4"
+    download: "Download MP4",
   },
   ru: {
     noFile: "Пожалуйста, выбери аудиофайл.",
@@ -87,13 +97,15 @@ const i18n = {
     healthFailed: "Проверка API не пройдена.",
     resetDone: "Форма сброшена.",
     invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
-    download: "Скачать MP4"
-  }
+    download: "Скачать MP4",
+  },
 };
 
 function t(key) {
   return i18n[currentLang]?.[key] || key;
 }
+
+/* Status helpers */
 
 function setStatus(message, type = "info") {
   statusBox.className = "status show";
@@ -107,6 +119,8 @@ function hideStatus() {
   statusBox.innerHTML = "";
 }
 
+/* Telegram */
+
 function initTelegramContext() {
   if (!tg) return;
   try { tg.ready(); } catch (_) {}
@@ -116,6 +130,8 @@ function initTelegramContext() {
   userId = telegramUser?.id || null;
   telegramInitData = tg.initData || "";
 }
+
+/* Background dim UI */
 
 function updateBackgroundDimUi() {
   const hasBackground = Boolean(backgroundFileInput?.files?.[0]);
@@ -131,6 +147,8 @@ function updateBackgroundDimUi() {
   if (!hasBackground) isDimPanelOpen = false;
   backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
 }
+
+/* Colors */
 
 function normalizeHexColor(value, fallback) {
   if (!value) return fallback;
@@ -169,6 +187,8 @@ function bindColorPair(colorInput, textInput, fallback) {
   });
 }
 
+/* Utils */
+
 function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -177,6 +197,8 @@ function shuffleArray(arr) {
   }
   return copy;
 }
+
+/* Milk presets UI */
 
 function renderMilkPresets(list) {
   milkPresetGrid.innerHTML = "";
@@ -227,7 +249,7 @@ function filterMilkPresets() {
   const filtered = milkPresets.filter((preset) =>
     preset.name.toLowerCase().includes(query) ||
     preset.key.toLowerCase().includes(query) ||
-    preset.family.toLowerCase().includes(query)
+    preset.family.toLowerCase().includes(query),
   );
 
   if (filtered.length && !filtered.find((x) => x.key === milkPresetInput.value)) {
@@ -248,6 +270,8 @@ function updateEngineUi() {
 
   restartPreviewLoop();
 }
+
+/* Preview rendering */
 
 function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
   ctx.clearRect(0, 0, width, height);
@@ -276,6 +300,9 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
   ctx.shadowColor = primary;
   ctx.strokeStyle = primary;
   ctx.fillStyle = primary;
+
+  // families (same as у тебя)
+  // ... (оставляю как есть, просто перенёс)
 
   if (family === "ring") {
     const r = 48 + Math.sin(tSec * 2.2) * 8 * amp;
@@ -432,23 +459,25 @@ function restartPreviewLoop() {
 
   const tick = (ts) => {
     const tSec = ts / 1000;
-
     canvases.forEach((canvas) => {
       const ctx = canvas.getContext("2d");
       const family = canvas.dataset.previewFamily || "ring";
       const isActive = canvas.closest(".preset-card")?.classList.contains("active");
       drawPreviewScene(ctx, family, canvas.width, canvas.height, tSec, primary, accent, isActive);
     });
-
     previewAnimationId = requestAnimationFrame(tick);
   };
 
   previewAnimationId = requestAnimationFrame(tick);
 }
 
+/* Custom text */
+
 function updateCustomTextVisibility() {
   customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
 }
+
+/* API helpers */
 
 async function checkHealth() {
   const response = await fetch(`${API_BASE}/`, { method: "GET" });
@@ -465,6 +494,8 @@ function buildDownloadUrl(downloadUrl) {
   if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) return downloadUrl;
   return `${API_BASE}${downloadUrl}`;
 }
+
+/* Main upload & render */
 
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
@@ -496,10 +527,12 @@ async function uploadAndRender() {
   try {
     renderButton.disabled = true;
 
+    console.log("[TMA] Health check...");
     setStatus(t("checkingApi"), "info");
     await checkHealth();
 
     setStatus(t("uploading"), "info");
+    console.log("[TMA] Uploading /upload");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -522,7 +555,7 @@ async function uploadAndRender() {
 
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
-      body: formData
+      body: formData,
     });
 
     const uploadContentType = uploadResponse.headers.get("content-type") || "";
@@ -541,6 +574,7 @@ async function uploadAndRender() {
     }
 
     const taskId = uploadData.task_id;
+    console.log("[TMA] Task queued:", taskId);
     setStatus(t("queued"), "info");
 
     let attempts = 0;
@@ -549,6 +583,7 @@ async function uploadAndRender() {
     while (attempts < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
+      console.log("[TMA] Poll /status/", taskId, "attempt", attempts + 1);
       const statusResponse = await fetch(`${API_BASE}/status/${taskId}`);
       const statusContentType = statusResponse.headers.get("content-type") || "";
       let statusData;
@@ -561,29 +596,35 @@ async function uploadAndRender() {
       }
 
       if (!statusResponse.ok) {
+        console.error("[TMA] Status non-OK:", statusResponse.status, statusData);
         setStatus(statusData.detail || t("badResponse"), "error");
         return;
       }
 
+      console.log("[TMA] Status data:", statusData);
+
       if (statusData.status === "queued") {
         setStatus(t("queued"), "info");
       } else if (statusData.status === "processing") {
-        const percent = statusData.percent || 0;
+        const percent = statusData.percent ?? 0;
         setStatus(`${t("processing")}: ${percent}%`, "info");
       } else if (statusData.status === "failed") {
         const errorText = statusData.error || t("failed");
+        console.error("[TMA] Backend failed:", errorText);
         setStatus(`${t("failed")}: ${errorText}`, "error");
         return;
       } else if (statusData.status === "done") {
         const url = buildDownloadUrl(statusData.download_url);
         if (!url) {
+          console.error("[TMA] Done but no download_url in response");
           setStatus(t("failed"), "error");
           return;
         }
 
+        console.log("[TMA] Done. Download URL:", url);
         setStatus(
           `${t("doneChat")}<br><br><a href="${url}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
-          "success"
+          "success",
         );
         return;
       }
@@ -591,14 +632,17 @@ async function uploadAndRender() {
       attempts += 1;
     }
 
+    console.error("[TMA] Timeout waiting for done/failed");
     setStatus(t("failed"), "error");
   } catch (error) {
-    console.error(error);
+    console.error("[TMA] Exception:", error);
     setStatus(error.message || t("networkError"), "error");
   } finally {
     renderButton.disabled = false;
   }
 }
+
+/* Reset */
 
 function resetForm() {
   audioFileInput.value = "";
@@ -628,6 +672,8 @@ function resetForm() {
   setTimeout(hideStatus, 2000);
 }
 
+/* Event bindings */
+
 langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
 });
@@ -656,6 +702,8 @@ bindColorPair(accentColorInput, accentColorText, "#7c4dff");
 
 renderButton.addEventListener("click", uploadAndRender);
 resetButton.addEventListener("click", resetForm);
+
+/* Initial */
 
 orientationSelect.value = "portrait";
 
