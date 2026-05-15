@@ -1,14 +1,12 @@
 const API_BASE = "https://completion-behind-amy-guidelines.trycloudflare.com";
 
 /* Telegram context */
-
 const tg = window.Telegram?.WebApp || null;
 let userId = null;
 let telegramInitData = "";
 let telegramUser = null;
 
 /* DOM refs */
-
 const audioFileInput = document.getElementById("audioFile");
 const backgroundFileInput = document.getElementById("backgroundFile");
 const backgroundControls = document.getElementById("backgroundControls");
@@ -43,14 +41,12 @@ const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
 
 /* State */
-
-let currentLang = "en";
+let currentLang = "ru";
 let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 
 /* Presets */
-
 const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
   { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
@@ -67,7 +63,6 @@ const milkPresets = [
 ];
 
 /* i18n */
-
 const i18n = {
   en: {
     noFile: "Please select an audio file.",
@@ -112,7 +107,6 @@ function t(key) {
 }
 
 /* Status helpers */
-
 function setStatus(message, type = "info") {
   statusBox.className = "status show";
   if (type === "success") statusBox.classList.add("success");
@@ -126,7 +120,6 @@ function hideStatus() {
 }
 
 /* Telegram */
-
 function initTelegramContext() {
   if (!tg) return;
   try {
@@ -142,27 +135,26 @@ function initTelegramContext() {
 }
 
 /* Background dim UI */
-
 function updateBackgroundDimUi() {
   const hasBackground = Boolean(backgroundFileInput?.files?.[0]);
   const dimValue = `${backgroundDimInput.value}%`;
 
-  backgroundDimValue.textContent = dimValue;
-  backgroundDimPreview.textContent = dimValue;
-  backgroundDimSummaryValue.textContent = dimValue;
+  if (backgroundDimValue) backgroundDimValue.textContent = dimValue;
+  if (backgroundDimPreview) backgroundDimPreview.textContent = dimValue;
+  if (backgroundDimSummaryValue) backgroundDimSummaryValue.textContent = dimValue;
 
-  backgroundControls.style.display = hasBackground ? "flex" : "none";
-  backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
+  if (backgroundControls) backgroundControls.style.display = hasBackground ? "flex" : "none";
+  if (backgroundDimSummary) backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
 
   if (!hasBackground) isDimPanelOpen = false;
-  backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
+  if (backgroundDimPanel) backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
 }
 
 /* Colors */
-
 function normalizeHexColor(value, fallback) {
   if (!value) return fallback;
-  let color = value.trim();
+
+  let color = String(value).trim();
   if (!color.startsWith("#")) color = `#${color}`;
 
   if (/^#[0-9a-fA-F]{3}$/.test(color)) {
@@ -172,33 +164,55 @@ function normalizeHexColor(value, fallback) {
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
 
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color.toLowerCase();
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+    return color.toLowerCase();
+  }
+
   return fallback;
 }
 
+function updateColorControlAppearance(colorInput, textInput, colorValue) {
+  if (colorInput) colorInput.value = colorValue;
+  if (textInput) {
+    textInput.value = colorValue;
+    textInput.style.borderColor = colorValue;
+    textInput.style.boxShadow = `0 0 0 1px ${colorValue}33`;
+  }
+}
+
 function syncColorInputs(colorInput, textInput, fallback) {
-  const normalized = normalizeHexColor(textInput.value || colorInput.value, fallback);
-  colorInput.value = normalized;
-  textInput.value = normalized;
+  const sourceValue = textInput?.value?.trim() || colorInput?.value || fallback;
+  const normalized = normalizeHexColor(sourceValue, fallback);
+  updateColorControlAppearance(colorInput, textInput, normalized);
   return normalized;
 }
 
 function bindColorPair(colorInput, textInput, fallback) {
+  if (!colorInput || !textInput) return;
+
   colorInput.addEventListener("input", () => {
-    textInput.value = colorInput.value.toLowerCase();
+    const normalized = normalizeHexColor(colorInput.value, fallback);
+    updateColorControlAppearance(colorInput, textInput, normalized);
     restartPreviewLoop();
+  });
+
+  textInput.addEventListener("input", () => {
+    const raw = textInput.value.trim();
+    if (/^#?[0-9a-fA-F]{3}$/.test(raw) || /^#?[0-9a-fA-F]{6}$/.test(raw)) {
+      const normalized = normalizeHexColor(raw, fallback);
+      updateColorControlAppearance(colorInput, textInput, normalized);
+      restartPreviewLoop();
+    }
   });
 
   textInput.addEventListener("blur", () => {
     const normalized = normalizeHexColor(textInput.value, fallback);
-    colorInput.value = normalized;
-    textInput.value = normalized;
+    updateColorControlAppearance(colorInput, textInput, normalized);
     restartPreviewLoop();
   });
 }
 
 /* Utils */
-
 function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -224,17 +238,9 @@ function formatStatusHtml(message) {
 function extractErrorMessage(payload, fallback = "Request failed.") {
   if (!payload) return fallback;
 
-  if (typeof payload === "string") {
-    return payload;
-  }
-
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error;
-  }
-
-  if (typeof payload.detail === "string") {
-    return payload.detail;
-  }
+  if (typeof payload === "string") return payload;
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (typeof payload.detail === "string") return payload.detail;
 
   if (Array.isArray(payload.detail)) {
     const lines = payload.detail.map((item) => {
@@ -246,9 +252,7 @@ function extractErrorMessage(payload, fallback = "Request failed.") {
     return lines.join("<br>");
   }
 
-  if (typeof payload.message === "string") {
-    return payload.message;
-  }
+  if (typeof payload.message === "string") return payload.message;
 
   try {
     return JSON.stringify(payload);
@@ -280,9 +284,7 @@ async function fetchJson(url, options = {}, timeoutMs = 30000) {
     payload = await response.json();
   } else {
     const text = await response.text();
-    if (!response.ok) {
-      throw new Error(text || t("badResponse"));
-    }
+    if (!response.ok) throw new Error(text || t("badResponse"));
     throw new Error(t("badResponse"));
   }
 
@@ -290,7 +292,6 @@ async function fetchJson(url, options = {}, timeoutMs = 30000) {
 }
 
 /* Milk presets UI */
-
 function renderMilkPresets(list) {
   milkPresetGrid.innerHTML = "";
 
@@ -355,15 +356,11 @@ function updateEngineUi() {
   if (styleField) styleField.style.display = "none";
   if (milkPanel) milkPanel.classList.add("show");
 
-  if (!visibleMilkPresets.length) {
-    refreshMilkRandom();
-  }
-
+  if (!visibleMilkPresets.length) refreshMilkRandom();
   restartPreviewLoop();
 }
 
 /* Preview rendering */
-
 function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
   ctx.clearRect(0, 0, width, height);
 
@@ -560,18 +557,16 @@ function restartPreviewLoop() {
 }
 
 /* Custom text */
-
 function updateCustomTextVisibility() {
-  customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
+  if (customTextField) {
+    customTextField.style.display = modeSelect.value === "full" ? "block" : "none";
+  }
 }
 
 /* API helpers */
-
 async function checkHealth() {
   const { response, payload } = await fetchJson(`${API_BASE}/`, { method: "GET" }, 15000);
-  if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, t("healthFailed")));
-  }
+  if (!response.ok) throw new Error(extractErrorMessage(payload, t("healthFailed")));
   return payload;
 }
 
@@ -582,7 +577,6 @@ function buildDownloadUrl(downloadUrl) {
 }
 
 /* Main upload & render */
-
 async function uploadAndRender() {
   const file = audioFileInput.files[0];
   const backgroundFile = backgroundFileInput?.files?.[0] || null;
@@ -613,15 +607,12 @@ async function uploadAndRender() {
   try {
     renderButton.disabled = true;
 
-    console.log("[TMA] Health check...");
     setStatus(t("checkingApi"), "info");
     await checkHealth();
 
     setStatus(t("uploading"), "info");
-    console.log("[TMA] Uploading /upload");
 
     const formData = new FormData();
-
     formData.append("file", file, file.name);
     formData.append("engine", engine);
     formData.append("style", style);
@@ -640,14 +631,10 @@ async function uploadAndRender() {
     if (backgroundFile) formData.append("background_file", backgroundFile, backgroundFile.name);
     if (customText) formData.append("custom_text", customText);
 
-    console.log("[TMA] FormData entries:");
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(` - ${key}: File(name=${value.name}, type=${value.type}, size=${value.size})`);
-      } else {
-        console.log(` - ${key}:`, value);
-      }
-    }
+    console.log("[TMA] Upload colors:", {
+      visualizer_color: visualizerColor,
+      accent_color: accentColor,
+    });
 
     const { response: uploadResponse, payload: uploadData } = await fetchJson(
       `${API_BASE}/upload`,
@@ -667,12 +654,10 @@ async function uploadAndRender() {
 
     const taskId = uploadData.task_id;
     if (!taskId) {
-      console.error("[TMA] task_id missing in upload response:", uploadData);
       setStatus(t("badResponse"), "error");
       return;
     }
 
-    console.log("[TMA] Task queued:", taskId);
     setStatus(t("queued"), "info");
 
     let attempts = 0;
@@ -680,8 +665,6 @@ async function uploadAndRender() {
 
     while (attempts < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      console.log("[TMA] Poll /status/", taskId, "attempt", attempts + 1);
 
       const { response: statusResponse, payload: statusData } = await fetchJson(
         `${API_BASE}/status/${taskId}`,
@@ -691,12 +674,9 @@ async function uploadAndRender() {
 
       if (!statusResponse.ok) {
         const errorMessage = extractErrorMessage(statusData, t("statusUnavailable"));
-        console.error("[TMA] Status non-OK:", statusResponse.status, statusData);
         setStatus(formatStatusHtml(errorMessage), "error");
         return;
       }
-
-      console.log("[TMA] Status data:", statusData);
 
       if (statusData.status === "queued" || statusData.status === "pending") {
         setStatus(t("queued"), "info");
@@ -712,18 +692,15 @@ async function uploadAndRender() {
           { error: statusData.error || statusData.detail || statusData.message },
           t("failed"),
         );
-        console.error("[TMA] Backend failed:", errorText, statusData);
         setStatus(`${t("failed")}: ${formatStatusHtml(errorText)}`, "error");
         return;
       } else if (statusData.status === "done" || statusData.status === "success") {
         const url = buildDownloadUrl(statusData.download_url);
         if (!url) {
-          console.error("[TMA] Done but no download_url in response", statusData);
           setStatus(t("badResponse"), "error");
           return;
         }
 
-        console.log("[TMA] Done. Download URL:", url);
         setStatus(
           `${t("doneChat")}<br><br><a href="${url}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
           "success",
@@ -734,10 +711,8 @@ async function uploadAndRender() {
       attempts += 1;
     }
 
-    console.error("[TMA] Timeout waiting for done/failed");
     setStatus(t("requestTimeout"), "error");
   } catch (error) {
-    console.error("[TMA] Exception:", error);
     const message = error?.message || t("networkError");
     setStatus(formatStatusHtml(message), "error");
   } finally {
@@ -746,7 +721,6 @@ async function uploadAndRender() {
 }
 
 /* Reset */
-
 function resetForm() {
   audioFileInput.value = "";
   backgroundFileInput.value = "";
@@ -761,10 +735,9 @@ function resetForm() {
   orientationSelect.value = "portrait";
   customTextInput.value = "";
   milkSearchInput.value = "";
-  visualizerColorInput.value = "#28c7e0";
-  visualizerColorText.value = "#28c7e0";
-  accentColorInput.value = "#7c4dff";
-  accentColorText.value = "#7c4dff";
+
+  updateColorControlAppearance(visualizerColorInput, visualizerColorText, "#28c7e0");
+  updateColorControlAppearance(accentColorInput, accentColorText, "#7c4dff");
 
   refreshMilkRandom();
   updateEngineUi();
@@ -776,7 +749,6 @@ function resetForm() {
 }
 
 /* Event bindings */
-
 langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
 });
@@ -791,26 +763,27 @@ backgroundFileInput.addEventListener("change", () => {
   updateBackgroundDimUi();
 });
 
-toggleDimButton.addEventListener("click", () => {
+toggleDimButton?.addEventListener("click", () => {
   isDimPanelOpen = !isDimPanelOpen;
   updateBackgroundDimUi();
 });
 
-backgroundDimInput.addEventListener("input", updateBackgroundDimUi);
-milkShuffleButton.addEventListener("click", refreshMilkRandom);
-milkSearchInput.addEventListener("input", filterMilkPresets);
+backgroundDimInput?.addEventListener("input", updateBackgroundDimUi);
+milkShuffleButton?.addEventListener("click", refreshMilkRandom);
+milkSearchInput?.addEventListener("input", filterMilkPresets);
 
 bindColorPair(visualizerColorInput, visualizerColorText, "#28c7e0");
 bindColorPair(accentColorInput, accentColorText, "#7c4dff");
 
-renderButton.addEventListener("click", uploadAndRender);
-resetButton.addEventListener("click", resetForm);
+renderButton?.addEventListener("click", uploadAndRender);
+resetButton?.addEventListener("click", resetForm);
 
 /* Initial */
-
 orientationSelect.value = "portrait";
 
 initTelegramContext();
+updateColorControlAppearance(visualizerColorInput, visualizerColorText, "#28c7e0");
+updateColorControlAppearance(accentColorInput, accentColorText, "#7c4dff");
 refreshMilkRandom();
 updateEngineUi();
 updateCustomTextVisibility();
