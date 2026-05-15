@@ -65,6 +65,42 @@ const milkPresets = [
 /* i18n */
 const i18n = {
   en: {
+    badge: "● MP3/WAV → MP4 visualizer",
+    title: "Create audio visualization in Telegram",
+    subtitle: "Upload your track, choose style and mode. In demo you get a short preview with watermark, in full — complete MP4 without restrictions.",
+    milkOnlyBadge: "MILK engine only",
+    sectionTitle: "New Render",
+    fileLabel: "Audio file",
+    fileHint: "MP3 and WAV are supported.",
+    backgroundLabel: "Background image / GIF / video",
+    backgroundHint: "Optional. If empty, default dark background will be used.",
+    toggleDimButton: "Adjust dimming",
+    backgroundDimLabel: "Background dim",
+    backgroundDimHint: "0% = original background, 100% = fully black.",
+    shuffleButton: "Shuffle",
+    milkHint: "Showing a few random presets. Search by name or shuffle to discover more.",
+    modeLabel: "Mode",
+    orientationLabel: "Orientation",
+    modeDemo: "Demo",
+    modeFull: "Full",
+    orientationPortrait: "Portrait (phone)",
+    orientationLandscape: "Landscape",
+    visualizerColorLabel: "Visualizer color",
+    visualizerColorHint: "Main color for wave, bars or core visualizer.",
+    accentColorLabel: "Accent color",
+    accentColorHint: "Secondary glow / accent color for MILK presets.",
+    customTextLabel: "Title for full video",
+    customTextHint: "Will be shown at the top center only in Full mode. Up to 80 characters.",
+    summaryEngine: "Engine",
+    summaryEngineDesc: "MILK only",
+    summaryDemo: "Demo",
+    summaryDemoDesc: "Up to 30 seconds + watermark",
+    summaryFull: "Full",
+    summaryFullDesc: "Full track without watermark",
+    summaryBackgroundDim: "Background dim",
+    renderButton: "Create Video",
+    resetButton: "Reset",
+    footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
@@ -83,27 +119,94 @@ const i18n = {
     statusUnavailable: "Status request failed.",
   },
   ru: {
-    noFile: "Пожалуйста, выбери аудиофайл.",
-    checkingApi: "Проверка доступности API...",
-    uploading: "Загрузка файла...",
-    queued: "Задача в очереди. Ожидание обработки...",
+    badge: "● MP3/WAV → MP4 visualizer",
+    title: "Создай аудиовизуализацию в Telegram",
+    subtitle: "Загрузи трек, выбери стиль и режим. В demo ты получишь короткий предпросмотр с вотермаркой, в full — полный MP4 без ограничений.",
+    milkOnlyBadge: "Только MILK engine",
+    sectionTitle: "Новый рендер",
+    fileLabel: "Аудиофайл",
+    fileHint: "Поддерживаются MP3 и WAV.",
+    backgroundLabel: "Фон: изображение / GIF / видео",
+    backgroundHint: "Необязательно. Если не выбрать файл, будет использован тёмный фон по умолчанию.",
+    toggleDimButton: "Настроить затемнение",
+    backgroundDimLabel: "Затемнение фона",
+    backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
+    shuffleButton: "Случайные",
+    milkHint: "Показаны несколько случайных пресетов. Ищи по имени или перемешивай список.",
+    modeLabel: "Режим",
+    orientationLabel: "Ориентация",
+    modeDemo: "Demo",
+    modeFull: "Full",
+    orientationPortrait: "Вертикально (телефон)",
+    orientationLandscape: "Горизонтально",
+    visualizerColorLabel: "Цвет визуализатора",
+    visualizerColorHint: "Основной цвет волны, баров или центрального визуализатора.",
+    accentColorLabel: "Акцентный цвет",
+    accentColorHint: "Вторичный glow / accent цвет для пресетов MILK.",
+    customTextLabel: "Текст для full-видео",
+    customTextHint: "Будет показан сверху по центру только в Full mode. До 80 символов.",
+    summaryEngine: "Движок",
+    summaryEngineDesc: "Только MILK",
+    summaryDemo: "Demo",
+    summaryDemoDesc: "До 30 секунд + вотермарка",
+    summaryFull: "Full",
+    summaryFullDesc: "Полный трек без вотермарки",
+    summaryBackgroundDim: "Затемнение фона",
+    renderButton: "Создать видео",
+    resetButton: "Сбросить",
+    footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram-чат.",
+    noFile: "Сначала выбери аудиофайл.",
+    checkingApi: "Проверяю API...",
+    uploading: "Загружаю файл...",
+    queued: "Задача поставлена в очередь. Жду обработку...",
     processing: "Обработка аудио",
-    doneChat: "Готово! MP4 готов. Скачай файл ниже.",
-    failed: "Ошибка рендера",
+    doneChat: "Готово! MP4 доступен ниже.",
+    failed: "Рендер завершился ошибкой",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
-    healthFailed: "Проверка API не пройдена.",
+    healthFailed: "Проверка API не прошла.",
     resetDone: "Форма сброшена.",
-    invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
+    invalidColor: "Некорректный HEX-цвет. Используй формат вроде #28c7e0.",
     download: "Скачать MP4",
     validationFailed: "Ошибка валидации.",
     requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
-    statusUnavailable: "Не удалось получить статус задачи.",
+    statusUnavailable: "Не удалось получить статус.",
   },
 };
 
 function t(key) {
-  return i18n[currentLang]?.[key] || key;
+  return i18n[currentLang]?.[key] ?? key;
+}
+
+/* i18n apply */
+function applyTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (key && i18n[currentLang]?.[key]) {
+      node.textContent = i18n[currentLang][key];
+    }
+  });
+
+  document.querySelectorAll("[data-i18n-opt]").forEach((node) => {
+    const key = node.getAttribute("data-i18n-opt");
+    if (key && i18n[currentLang]?.[key]) {
+      node.textContent = i18n[currentLang][key];
+    }
+  });
+
+  if (milkSearchInput) {
+    milkSearchInput.placeholder =
+      currentLang === "ru" ? "Поиск пресета по имени" : "Search preset by name";
+  }
+
+  if (customTextInput) {
+    customTextInput.placeholder =
+      currentLang === "ru" ? "Необязательный текст для full mode" : "Optional text for full mode";
+  }
+
+  if (langToggle) {
+    langToggle.textContent = currentLang === "ru" ? "EN" : "RU";
+  }
 }
 
 /* Status helpers */
@@ -122,9 +225,11 @@ function hideStatus() {
 /* Telegram */
 function initTelegramContext() {
   if (!tg) return;
+
   try {
     tg.ready();
   } catch (_) {}
+
   try {
     tg.expand();
   } catch (_) {}
@@ -137,11 +242,11 @@ function initTelegramContext() {
 /* Background dim UI */
 function updateBackgroundDimUi() {
   const hasBackground = Boolean(backgroundFileInput?.files?.[0]);
-  const dimValue = `${backgroundDimInput.value}%`;
+  const dimValue = backgroundDimInput.value;
 
-  if (backgroundDimValue) backgroundDimValue.textContent = dimValue;
-  if (backgroundDimPreview) backgroundDimPreview.textContent = dimValue;
-  if (backgroundDimSummaryValue) backgroundDimSummaryValue.textContent = dimValue;
+  if (backgroundDimValue) backgroundDimValue.textContent = `${dimValue}%`;
+  if (backgroundDimPreview) backgroundDimPreview.textContent = `${dimValue}%`;
+  if (backgroundDimSummaryValue) backgroundDimSummaryValue.textContent = `${dimValue}%`;
 
   if (backgroundControls) backgroundControls.style.display = hasBackground ? "flex" : "none";
   if (backgroundDimSummary) backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
@@ -153,8 +258,8 @@ function updateBackgroundDimUi() {
 /* Colors */
 function normalizeHexColor(value, fallback) {
   if (!value) return fallback;
-
   let color = String(value).trim();
+
   if (!color.startsWith("#")) color = `#${color}`;
 
   if (/^#[0-9a-fA-F]{3}$/.test(color)) {
@@ -232,30 +337,30 @@ function escapeHtml(value) {
 }
 
 function formatStatusHtml(message) {
-  return escapeHtml(message).replaceAll("&lt;br&gt;", "<br>");
+  return escapeHtml(message).replaceAll("\n", "<br>");
 }
 
 function extractErrorMessage(payload, fallback = "Request failed.") {
   if (!payload) return fallback;
 
   if (typeof payload === "string") return payload;
+
   if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
-  if (typeof payload.detail === "string") return payload.detail;
+  if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail;
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
 
   if (Array.isArray(payload.detail)) {
     const lines = payload.detail.map((item) => {
       if (!item || typeof item !== "object") return String(item);
-      const loc = Array.isArray(item.loc) ? item.loc.join(" -> ") : "field";
+      const loc = Array.isArray(item.loc) ? item.loc.join(" → ") : "field";
       const msg = item.msg || "invalid value";
       return `${loc}: ${msg}`;
     });
-    return lines.join("<br>");
+    return lines.join("\n");
   }
 
-  if (typeof payload.message === "string") return payload.message;
-
   try {
-    return JSON.stringify(payload);
+    return JSON.stringify(payload, null, 2);
   } catch (_) {
     return fallback;
   }
@@ -271,21 +376,15 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 }
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
-  const response = await withTimeout(
-    fetch(url, options),
-    timeoutMs,
-    t("requestTimeout"),
-  );
-
+  const response = await withTimeout(fetch(url, options), timeoutMs, t("requestTimeout"));
   const contentType = response.headers.get("content-type") || "";
-  let payload = null;
 
+  let payload = null;
   if (contentType.includes("application/json")) {
     payload = await response.json();
   } else {
     const text = await response.text();
-    if (!response.ok) throw new Error(text || t("badResponse"));
-    throw new Error(t("badResponse"));
+    payload = text ? { detail: text } : null;
   }
 
   return { response, payload };
@@ -306,15 +405,17 @@ function renderMilkPresets(list) {
     card.className = `preset-card ${milkPresetInput.value === preset.key ? "active" : ""}`;
     card.innerHTML = `
       <canvas class="preset-preview" width="520" height="220" data-preview-family="${preset.family}"></canvas>
-      <div class="preset-name">${preset.name}</div>
-      <div class="preset-meta">${preset.family}</div>
-      <p class="preset-desc">${preset.desc}</p>
+      <div class="preset-name">${escapeHtml(preset.name)}</div>
+      <div class="preset-meta">${escapeHtml(preset.family)}</div>
+      <p class="preset-desc">${escapeHtml(preset.desc)}</p>
     `;
+
     card.addEventListener("click", () => {
       milkPresetInput.value = preset.key;
       renderMilkPresets(list);
       restartPreviewLoop();
     });
+
     milkPresetGrid.appendChild(card);
   });
 
@@ -324,9 +425,11 @@ function renderMilkPresets(list) {
 function refreshMilkRandom() {
   const shuffled = shuffleArray(milkPresets).slice(0, 6);
   visibleMilkPresets = shuffled;
+
   if (!shuffled.find((x) => x.key === milkPresetInput.value)) {
     milkPresetInput.value = shuffled[0]?.key || "ring_neon";
   }
+
   renderMilkPresets(shuffled);
 }
 
@@ -341,7 +444,7 @@ function filterMilkPresets() {
   const filtered = milkPresets.filter((preset) =>
     preset.name.toLowerCase().includes(query) ||
     preset.key.toLowerCase().includes(query) ||
-    preset.family.toLowerCase().includes(query),
+    preset.family.toLowerCase().includes(query)
   );
 
   if (filtered.length && !filtered.find((x) => x.key === milkPresetInput.value)) {
@@ -409,7 +512,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     for (let i = 0; i < 48; i += 1) {
       const a = (Math.PI * 2 * i) / 48;
       const base = 34;
-      const extra = (10 + 20 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.5))) * amp;
+      const extra = 10 + 20 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.5)) * amp;
       const x1 = cx + Math.cos(a) * base;
       const y1 = cy + Math.sin(a) * base;
       const x2 = cx + Math.cos(a) * (base + extra);
@@ -421,7 +524,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     }
   } else if (family === "scope") {
     ctx.beginPath();
-    for (let x = 0; x <= width; x += 4) {
+    for (let x = 0; x < width; x += 4) {
       const y = cy + Math.sin(x * 0.03 + tSec * 4) * 22 * amp + Math.sin(x * 0.013 - tSec * 2) * 8;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
@@ -429,17 +532,18 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     ctx.stroke();
   } else if (family === "mirror_wave") {
     ctx.beginPath();
-    for (let x = 0; x <= width; x += 5) {
+    for (let x = 0; x < width; x += 5) {
       const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
       const y = cy - d;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
+
     ctx.strokeStyle = accent;
     ctx.shadowColor = accent;
     ctx.beginPath();
-    for (let x = 0; x <= width; x += 5) {
+    for (let x = 0; x < width; x += 5) {
       const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
       const y = cy + d;
       if (x === 0) ctx.moveTo(x, y);
@@ -451,7 +555,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     const barW = width / bars;
     for (let i = 0; i < bars; i += 1) {
       const x = i * barW + 1;
-      const h = (16 + 48 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.45))) * amp;
+      const h = 16 + 48 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.45)) * amp;
       ctx.fillRect(x, cy - h / 2, Math.max(barW - 2, 2), h);
     }
   } else if (family === "tunnel") {
@@ -475,12 +579,13 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     ctx.stroke();
   } else if (family === "horizon_wave") {
     ctx.beginPath();
-    for (let x = 0; x <= width; x += 4) {
+    for (let x = 0; x < width; x += 4) {
       const y = cy + Math.sin(x * 0.02 + tSec * 2) * 18 * amp;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
+
     ctx.globalAlpha = 0.18;
     ctx.fillStyle = primary;
     ctx.lineTo(width, height);
@@ -491,7 +596,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     const cols = 40;
     const colW = width / cols;
     for (let i = 0; i < cols; i += 1) {
-      const h = (18 + 70 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.4))) * amp;
+      const h = 18 + 70 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.4)) * amp;
       const grad = ctx.createLinearGradient(0, cy + h / 2, 0, cy - h / 2);
       grad.addColorStop(0, accent);
       grad.addColorStop(1, primary);
@@ -503,8 +608,9 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
+
     for (let i = 0; i < 3; i += 1) {
-      const a = tSec * (1.4 + i * 0.3) + i * 2;
+      const a = tSec * 1.4 + i * 2;
       const x = cx + Math.cos(a) * r;
       const y = cy + Math.sin(a) * r;
       ctx.beginPath();
@@ -544,12 +650,14 @@ function restartPreviewLoop() {
 
   const tick = (ts) => {
     const tSec = ts / 1000;
+
     canvases.forEach((canvas) => {
       const ctx = canvas.getContext("2d");
       const family = canvas.dataset.previewFamily || "ring";
       const isActive = canvas.closest(".preset-card")?.classList.contains("active");
       drawPreviewScene(ctx, family, canvas.width, canvas.height, tSec, primary, accent, isActive);
     });
+
     previewAnimationId = requestAnimationFrame(tick);
   };
 
@@ -566,7 +674,9 @@ function updateCustomTextVisibility() {
 /* API helpers */
 async function checkHealth() {
   const { response, payload } = await fetchJson(`${API_BASE}/`, { method: "GET" }, 15000);
-  if (!response.ok) throw new Error(extractErrorMessage(payload, t("healthFailed")));
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(payload, t("healthFailed")));
+  }
   return payload;
 }
 
@@ -576,9 +686,9 @@ function buildDownloadUrl(downloadUrl) {
   return `${API_BASE}${downloadUrl}`;
 }
 
-/* Main upload & render */
+/* Main upload/render */
 async function uploadAndRender() {
-  const file = audioFileInput.files[0];
+  const file = audioFileInput.files?.[0];
   const backgroundFile = backgroundFileInput?.files?.[0] || null;
 
   if (!file) {
@@ -597,12 +707,12 @@ async function uploadAndRender() {
   }
 
   const engine = "milk";
-  const style = milkPresetInput.value;
-  const mode = modeSelect.value;
-  const orientation = orientationSelect.value || "portrait";
+  const style = milkPresetInput.value || "ring_neon";
+  const milkPreset = milkPresetInput.value || "ring_neon";
+  const mode = modeSelect.value || "demo";
+  const orientation = orientationSelect.value || "landscape";
   const customText = customTextInput.value.trim();
   const backgroundDim = Number(backgroundDimInput.value || 35);
-  const milkPreset = milkPresetInput.value;
 
   try {
     renderButton.disabled = true;
@@ -616,6 +726,7 @@ async function uploadAndRender() {
     formData.append("file", file, file.name);
     formData.append("engine", engine);
     formData.append("style", style);
+    formData.append("milk_preset", milkPreset);
     formData.append("mode", mode);
     formData.append("orientation", orientation);
     formData.append("background_dim", String(backgroundDim));
@@ -627,13 +738,21 @@ async function uploadAndRender() {
     if (telegramUser?.username) formData.append("username", telegramUser.username);
     if (telegramUser?.first_name) formData.append("first_name", telegramUser.first_name);
     if (telegramUser?.language_code) formData.append("language_code", telegramUser.language_code);
-    if (milkPreset) formData.append("milk_preset", milkPreset);
     if (backgroundFile) formData.append("background_file", backgroundFile, backgroundFile.name);
     if (customText) formData.append("custom_text", customText);
 
-    console.log("[TMA] Upload colors:", {
+    console.log("TMA upload payload", {
+      engine,
+      style,
+      milk_preset: milkPreset,
+      mode,
+      orientation,
+      background_dim: backgroundDim,
       visualizer_color: visualizerColor,
       accent_color: accentColor,
+      user_id: userId,
+      has_background_file: Boolean(backgroundFile),
+      custom_text: customText,
     });
 
     const { response: uploadResponse, payload: uploadData } = await fetchJson(
@@ -642,17 +761,17 @@ async function uploadAndRender() {
         method: "POST",
         body: formData,
       },
-      120000,
+      120000
     );
 
     if (!uploadResponse.ok) {
       const errorMessage = extractErrorMessage(uploadData, t("validationFailed"));
       setStatus(formatStatusHtml(errorMessage), "error");
-      console.error("[TMA] Upload failed:", uploadResponse.status, uploadData);
+      console.error("TMA upload failed", uploadResponse.status, uploadData);
       return;
     }
 
-    const taskId = uploadData.task_id;
+    const taskId = uploadData?.task_id;
     if (!taskId) {
       setStatus(t("badResponse"), "error");
       return;
@@ -669,7 +788,7 @@ async function uploadAndRender() {
       const { response: statusResponse, payload: statusData } = await fetchJson(
         `${API_BASE}/status/${taskId}`,
         { method: "GET" },
-        30000,
+        30000
       );
 
       if (!statusResponse.ok) {
@@ -686,13 +805,13 @@ async function uploadAndRender() {
         statusData.status === "started"
       ) {
         const percent = Number(statusData.percent ?? 0);
-        setStatus(`${t("processing")}: ${Number.isFinite(percent) ? percent : 0}%`, "info");
+        setStatus(`${t("processing")}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`, "info");
       } else if (statusData.status === "failed" || statusData.status === "failure") {
         const errorText = extractErrorMessage(
-          { error: statusData.error || statusData.detail || statusData.message },
-          t("failed"),
+          { error: statusData.error, detail: statusData.detail, message: statusData.message },
+          t("failed")
         );
-        setStatus(`${t("failed")}: ${formatStatusHtml(errorText)}`, "error");
+        setStatus(`${t("failed")}:\n${formatStatusHtml(errorText)}`, "error");
         return;
       } else if (statusData.status === "done" || statusData.status === "success") {
         const url = buildDownloadUrl(statusData.download_url);
@@ -702,8 +821,8 @@ async function uploadAndRender() {
         }
 
         setStatus(
-          `${t("doneChat")}<br><br><a href="${url}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
-          "success",
+          `${t("doneChat")}<br><br><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
+          "success"
         );
         return;
       }
@@ -743,6 +862,7 @@ function resetForm() {
   updateEngineUi();
   updateCustomTextVisibility();
   updateBackgroundDimUi();
+
   hideStatus();
   setStatus(t("resetDone"), "info");
   setTimeout(hideStatus, 2000);
@@ -751,6 +871,8 @@ function resetForm() {
 /* Event bindings */
 langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
+  applyTranslations();
+  renderMilkPresets(visibleMilkPresets);
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
@@ -780,8 +902,8 @@ resetButton?.addEventListener("click", resetForm);
 
 /* Initial */
 orientationSelect.value = "portrait";
-
 initTelegramContext();
+applyTranslations();
 updateColorControlAppearance(visualizerColorInput, visualizerColorText, "#28c7e0");
 updateColorControlAppearance(accentColorInput, accentColorText, "#7c4dff");
 refreshMilkRandom();
