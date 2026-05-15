@@ -84,6 +84,8 @@ const i18n = {
     invalidColor: "Invalid HEX color. Use format like #28c7e0.",
     download: "Download MP4",
     validationFailed: "Validation error.",
+    requestTimeout: "Request timeout. Please try again.",
+    statusUnavailable: "Status request failed.",
   },
   ru: {
     noFile: "Пожалуйста, выбери аудиофайл.",
@@ -100,6 +102,8 @@ const i18n = {
     invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
     download: "Скачать MP4",
     validationFailed: "Ошибка валидации.",
+    requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
+    statusUnavailable: "Не удалось получить статус задачи.",
   },
 };
 
@@ -213,11 +217,19 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function formatStatusHtml(message) {
+  return escapeHtml(message).replaceAll("&lt;br&gt;", "<br>");
+}
+
 function extractErrorMessage(payload, fallback = "Request failed.") {
   if (!payload) return fallback;
 
   if (typeof payload === "string") {
     return payload;
+  }
+
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
   }
 
   if (typeof payload.detail === "string") {
@@ -243,6 +255,38 @@ function extractErrorMessage(payload, fallback = "Request failed.") {
   } catch (_) {
     return fallback;
   }
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timerId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timerId));
+}
+
+async function fetchJson(url, options = {}, timeoutMs = 30000) {
+  const response = await withTimeout(
+    fetch(url, options),
+    timeoutMs,
+    t("requestTimeout"),
+  );
+
+  const contentType = response.headers.get("content-type") || "";
+  let payload = null;
+
+  if (contentType.includes("application/json")) {
+    payload = await response.json();
+  } else {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(text || t("badResponse"));
+    }
+    throw new Error(t("badResponse"));
+  }
+
+  return { response, payload };
 }
 
 /* Milk presets UI */
@@ -524,13 +568,11 @@ function updateCustomTextVisibility() {
 /* API helpers */
 
 async function checkHealth() {
-  const response = await fetch(`${API_BASE}/`, { method: "GET" });
-  if (!response.ok) throw new Error(t("healthFailed"));
-
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) throw new Error(t("badResponse"));
-
-  return response.json();
+  const { response, payload } = await fetchJson(`${API_BASE}/`, { method: "GET" }, 15000);
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(payload, t("healthFailed")));
+  }
+  return payload;
 }
 
 function buildDownloadUrl(downloadUrl) {
@@ -607,24 +649,18 @@ async function uploadAndRender() {
       }
     }
 
-    const uploadResponse = await fetch(`${API_BASE}/upload`, {
-      method: "POST",
-      body: formData,
-    });
-
-    const uploadContentType = uploadResponse.headers.get("content-type") || "";
-    let uploadData;
-
-    if (uploadContentType.includes("application/json")) {
-      uploadData = await uploadResponse.json();
-    } else {
-      const text = await uploadResponse.text();
-      throw new Error(text || t("badResponse"));
-    }
+    const { response: uploadResponse, payload: uploadData } = await fetchJson(
+      `${API_BASE}/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+      120000,
+    );
 
     if (!uploadResponse.ok) {
       const errorMessage = extractErrorMessage(uploadData, t("validationFailed"));
-      setStatus(escapeHtml(errorMessage).replaceAll("&lt;br&gt;", "<br>"), "error");
+      setStatus(formatStatusHtml(errorMessage), "error");
       console.error("[TMA] Upload failed:", uploadResponse.status, uploadData);
       return;
     }
@@ -646,41 +682,44 @@ async function uploadAndRender() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       console.log("[TMA] Poll /status/", taskId, "attempt", attempts + 1);
-      const statusResponse = await fetch(`${API_BASE}/status/${taskId}`);
-      const statusContentType = statusResponse.headers.get("content-type") || "";
-      let statusData;
 
-      if (statusContentType.includes("application/json")) {
-        statusData = await statusResponse.json();
-      } else {
-        const text = await statusResponse.text();
-        throw new Error(text || t("badResponse"));
-      }
+      const { response: statusResponse, payload: statusData } = await fetchJson(
+        `${API_BASE}/status/${taskId}`,
+        { method: "GET" },
+        30000,
+      );
 
       if (!statusResponse.ok) {
-        const errorMessage = extractErrorMessage(statusData, t("badResponse"));
+        const errorMessage = extractErrorMessage(statusData, t("statusUnavailable"));
         console.error("[TMA] Status non-OK:", statusResponse.status, statusData);
-        setStatus(escapeHtml(errorMessage).replaceAll("&lt;br&gt;", "<br>"), "error");
+        setStatus(formatStatusHtml(errorMessage), "error");
         return;
       }
 
       console.log("[TMA] Status data:", statusData);
 
-      if (statusData.status === "queued") {
+      if (statusData.status === "queued" || statusData.status === "pending") {
         setStatus(t("queued"), "info");
-      } else if (statusData.status === "processing") {
-        const percent = statusData.percent ?? 0;
-        setStatus(`${t("processing")}: ${percent}%`, "info");
-      } else if (statusData.status === "failed") {
-        const errorText = extractErrorMessage(statusData, t("failed"));
-        console.error("[TMA] Backend failed:", errorText);
-        setStatus(`${t("failed")}: ${escapeHtml(errorText)}`, "error");
+      } else if (
+        statusData.status === "processing" ||
+        statusData.status === "progress" ||
+        statusData.status === "started"
+      ) {
+        const percent = Number(statusData.percent ?? 0);
+        setStatus(`${t("processing")}: ${Number.isFinite(percent) ? percent : 0}%`, "info");
+      } else if (statusData.status === "failed" || statusData.status === "failure") {
+        const errorText = extractErrorMessage(
+          { error: statusData.error || statusData.detail || statusData.message },
+          t("failed"),
+        );
+        console.error("[TMA] Backend failed:", errorText, statusData);
+        setStatus(`${t("failed")}: ${formatStatusHtml(errorText)}`, "error");
         return;
-      } else if (statusData.status === "done") {
+      } else if (statusData.status === "done" || statusData.status === "success") {
         const url = buildDownloadUrl(statusData.download_url);
         if (!url) {
-          console.error("[TMA] Done but no download_url in response");
-          setStatus(t("failed"), "error");
+          console.error("[TMA] Done but no download_url in response", statusData);
+          setStatus(t("badResponse"), "error");
           return;
         }
 
@@ -696,10 +735,11 @@ async function uploadAndRender() {
     }
 
     console.error("[TMA] Timeout waiting for done/failed");
-    setStatus(t("failed"), "error");
+    setStatus(t("requestTimeout"), "error");
   } catch (error) {
     console.error("[TMA] Exception:", error);
-    setStatus(escapeHtml(error.message || t("networkError")), "error");
+    const message = error?.message || t("networkError");
+    setStatus(formatStatusHtml(message), "error");
   } finally {
     renderButton.disabled = false;
   }
