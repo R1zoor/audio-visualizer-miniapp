@@ -53,17 +53,17 @@ let previewAnimationId = null;
 
 const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
-  { key: "double_ring", name: "Double Ring", family: "doublering", desc: "Two layered circles with audio energy." },
-  { key: "radial_bars", name: "Radial Bars", family: "radialbars", desc: "Circular bars around a bright core." },
+  { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
+  { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
   { key: "scope_line", name: "Scope Line", family: "scope", desc: "Classic oscilloscope with bloom." },
-  { key: "mirror_wave", name: "Mirror Wave", family: "mirrorwave", desc: "Mirrored waveform with center symmetry." },
-  { key: "center_bars", name: "Center Bars", family: "centerbars", desc: "Bars rising from the middle line." },
+  { key: "mirror_wave", name: "Mirror Wave", family: "mirror_wave", desc: "Mirrored waveform with center symmetry." },
+  { key: "center_bars", name: "Center Bars", family: "center_bars", desc: "Bars rising from the middle line." },
   { key: "dark_tunnel", name: "Dark Tunnel", family: "tunnel", desc: "Tunnel-like depth and bass motion." },
-  { key: "pulse_core", name: "Pulse Core", family: "pulsecore", desc: "Energy core with expanding audio pulse." },
-  { key: "horizon_wave", name: "Horizon Wave", family: "horizonwave", desc: "Wide cinematic horizon waveform." },
-  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogramplus", desc: "Dense colorful spectral movement." },
-  { key: "orbital_scope", name: "Orbital Scope", family: "orbitalscope", desc: "Circular scope orbit with rotating feel." },
-  { key: "spiral_beam", name: "Spiral Beam", family: "spiralbeam", desc: "Spiral energy with dynamic lines." },
+  { key: "pulse_core", name: "Pulse Core", family: "pulse_core", desc: "Energy core with expanding audio pulse." },
+  { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic horizon waveform." },
+  { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus", desc: "Dense colorful spectral movement." },
+  { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Circular scope orbit with rotating feel." },
+  { key: "spiral_beam", name: "Spiral Beam", family: "spiral_beam", desc: "Spiral energy with dynamic lines." },
 ];
 
 /* i18n */
@@ -83,6 +83,7 @@ const i18n = {
     resetDone: "Form reset.",
     invalidColor: "Invalid HEX color. Use format like #28c7e0.",
     download: "Download MP4",
+    validationFailed: "Validation error.",
   },
   ru: {
     noFile: "Пожалуйста, выбери аудиофайл.",
@@ -98,6 +99,7 @@ const i18n = {
     resetDone: "Форма сброшена.",
     invalidColor: "Неверный HEX-цвет. Используй формат вроде #28c7e0.",
     download: "Скачать MP4",
+    validationFailed: "Ошибка валидации.",
   },
 };
 
@@ -123,8 +125,12 @@ function hideStatus() {
 
 function initTelegramContext() {
   if (!tg) return;
-  try { tg.ready(); } catch (_) {}
-  try { tg.expand(); } catch (_) {}
+  try {
+    tg.ready();
+  } catch (_) {}
+  try {
+    tg.expand();
+  } catch (_) {}
 
   telegramUser = tg.initDataUnsafe?.user || tg.initDataUnsafe?.receiver || null;
   userId = telegramUser?.id || null;
@@ -196,6 +202,47 @@ function shuffleArray(arr) {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function extractErrorMessage(payload, fallback = "Request failed.") {
+  if (!payload) return fallback;
+
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  if (typeof payload.detail === "string") {
+    return payload.detail;
+  }
+
+  if (Array.isArray(payload.detail)) {
+    const lines = payload.detail.map((item) => {
+      if (!item || typeof item !== "object") return String(item);
+      const loc = Array.isArray(item.loc) ? item.loc.join(" -> ") : "field";
+      const msg = item.msg || "invalid value";
+      return `${loc}: ${msg}`;
+    });
+    return lines.join("<br>");
+  }
+
+  if (typeof payload.message === "string") {
+    return payload.message;
+  }
+
+  try {
+    return JSON.stringify(payload);
+  } catch (_) {
+    return fallback;
+  }
 }
 
 /* Milk presets UI */
@@ -300,9 +347,6 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
   ctx.shadowColor = primary;
   ctx.strokeStyle = primary;
   ctx.fillStyle = primary;
-
-  // families (same as у тебя)
-  // ... (оставляю как есть, просто перенёс)
 
   if (family === "ring") {
     const r = 48 + Math.sin(tSec * 2.2) * 8 * amp;
@@ -535,17 +579,33 @@ async function uploadAndRender() {
     console.log("[TMA] Uploading /upload");
 
     const formData = new FormData();
+
+    formData.append("file", file, file.name);
+    formData.append("engine", engine);
+    formData.append("style", style);
+    formData.append("mode", mode);
+    formData.append("orientation", orientation);
     formData.append("background_dim", String(backgroundDim));
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
+
     if (userId) formData.append("user_id", String(userId));
     if (telegramInitData) formData.append("init_data", telegramInitData);
     if (telegramUser?.username) formData.append("username", telegramUser.username);
     if (telegramUser?.first_name) formData.append("first_name", telegramUser.first_name);
     if (telegramUser?.language_code) formData.append("language_code", telegramUser.language_code);
     if (milkPreset) formData.append("milk_preset", milkPreset);
-    if (backgroundFile) formData.append("background_file", backgroundFile);
+    if (backgroundFile) formData.append("background_file", backgroundFile, backgroundFile.name);
     if (customText) formData.append("custom_text", customText);
+
+    console.log("[TMA] FormData entries:");
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(` - ${key}: File(name=${value.name}, type=${value.type}, size=${value.size})`);
+      } else {
+        console.log(` - ${key}:`, value);
+      }
+    }
 
     const uploadResponse = await fetch(`${API_BASE}/upload`, {
       method: "POST",
@@ -563,11 +623,19 @@ async function uploadAndRender() {
     }
 
     if (!uploadResponse.ok) {
-      setStatus(uploadData.detail || t("badResponse"), "error");
+      const errorMessage = extractErrorMessage(uploadData, t("validationFailed"));
+      setStatus(escapeHtml(errorMessage).replaceAll("&lt;br&gt;", "<br>"), "error");
+      console.error("[TMA] Upload failed:", uploadResponse.status, uploadData);
       return;
     }
 
     const taskId = uploadData.task_id;
+    if (!taskId) {
+      console.error("[TMA] task_id missing in upload response:", uploadData);
+      setStatus(t("badResponse"), "error");
+      return;
+    }
+
     console.log("[TMA] Task queued:", taskId);
     setStatus(t("queued"), "info");
 
@@ -590,8 +658,9 @@ async function uploadAndRender() {
       }
 
       if (!statusResponse.ok) {
+        const errorMessage = extractErrorMessage(statusData, t("badResponse"));
         console.error("[TMA] Status non-OK:", statusResponse.status, statusData);
-        setStatus(statusData.detail || t("badResponse"), "error");
+        setStatus(escapeHtml(errorMessage).replaceAll("&lt;br&gt;", "<br>"), "error");
         return;
       }
 
@@ -603,9 +672,9 @@ async function uploadAndRender() {
         const percent = statusData.percent ?? 0;
         setStatus(`${t("processing")}: ${percent}%`, "info");
       } else if (statusData.status === "failed") {
-        const errorText = statusData.error || t("failed");
+        const errorText = extractErrorMessage(statusData, t("failed"));
         console.error("[TMA] Backend failed:", errorText);
-        setStatus(`${t("failed")}: ${errorText}`, "error");
+        setStatus(`${t("failed")}: ${escapeHtml(errorText)}`, "error");
         return;
       } else if (statusData.status === "done") {
         const url = buildDownloadUrl(statusData.download_url);
@@ -630,7 +699,7 @@ async function uploadAndRender() {
     setStatus(t("failed"), "error");
   } catch (error) {
     console.error("[TMA] Exception:", error);
-    setStatus(error.message || t("networkError"), "error");
+    setStatus(escapeHtml(error.message || t("networkError")), "error");
   } finally {
     renderButton.disabled = false;
   }
