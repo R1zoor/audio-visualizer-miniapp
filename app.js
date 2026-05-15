@@ -1,4 +1,4 @@
-const API_BASE = "https://karma-dsc-parker-sticky.trycloudflare.com";
+const API_BASE = "https://completion-behind-amy-guidelines.trycloudflare.com";
 
 /* Telegram context */
 
