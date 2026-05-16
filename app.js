@@ -1,4 +1,4 @@
-const API_BASE = "https://completion-behind-amy-guidelines.trycloudflare.com";
+const API_BASE = "https://prospects-participant-opera-leo.trycloudflare.com";
 
 /* Telegram context */
 const tg = window.Telegram?.WebApp || null;
