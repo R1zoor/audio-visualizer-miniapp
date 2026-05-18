@@ -1,4 +1,4 @@
-const API_BASE = "https://richardson-satellite-legislative-simpsons.trycloudflare.com";
+const API_BASE = "https://freeware-earrings-innocent-grows.trycloudflare.com";
 
 /* Telegram context */
 const tg = window.Telegram?.WebApp || null;
