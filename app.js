@@ -51,15 +51,14 @@ const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
   { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
   { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
-  { key: "scope_line", name: "Scope Line", family: "scope", desc: "Classic oscilloscope with bloom." },
-  { key: "mirror_wave", name: "Mirror Wave", family: "mirror_wave", desc: "Mirrored waveform with center symmetry." },
-  { key: "center_bars", name: "Center Bars", family: "center_bars", desc: "Bars rising from the middle line." },
-  { key: "dark_tunnel", name: "Dark Tunnel", family: "tunnel", desc: "Tunnel-like depth and bass motion." },
-  { key: "pulse_core", name: "Pulse Core", family: "pulse_core", desc: "Energy core with expanding audio pulse." },
+  { key: "neon_mandala", name: "Neon Mandala", family: "neon_mandala", desc: "Symmetric neon mandala with layered motion." },
+  { key: "laser_fan", name: "Laser Fan", family: "laser_fan", desc: "Sharp fan beams reacting to audio peaks." },
+  { key: "bass_tunnel", name: "Bass Tunnel", family: "bass_tunnel", desc: "Tunnel-like depth and bass motion." },
+  { key: "plasma_orb", name: "Plasma Orb", family: "plasma_orb", desc: "Glowing plasma sphere with audio pulse." },
   { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic horizon waveform." },
   { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus", desc: "Dense colorful spectral movement." },
   { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Circular scope orbit with rotating feel." },
-  { key: "spiral_beam", name: "Spiral Beam", family: "spiral_beam", desc: "Spiral energy with dynamic lines." },
+  { key: "particle_fountain", name: "Particle Fountain", family: "particle_fountain", desc: "Rising particle fountain with neon sparks." },
 ];
 
 /* i18n */
@@ -235,7 +234,7 @@ function initTelegramContext() {
   } catch (_) {}
 
   telegramUser = tg.initDataUnsafe?.user || tg.initDataUnsafe?.receiver || null;
-  userId = telegramUser?.id || null;
+  userId = tg.initDataUnsafe?.user?.id || null;
   telegramInitData = tg.initData || "";
 }
 
@@ -427,7 +426,7 @@ function refreshMilkRandom() {
   visibleMilkPresets = shuffled;
 
   if (!shuffled.find((x) => x.key === milkPresetInput.value)) {
-    milkPresetInput.value = shuffled[0]?.key || "ring_neon";
+    milkPresetInput.value = shuffled[0]?.key || "neon_mandala";
   }
 
   renderMilkPresets(shuffled);
@@ -522,43 +521,37 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
-  } else if (family === "scope") {
-    ctx.beginPath();
-    for (let x = 0; x < width; x += 4) {
-      const y = cy + Math.sin(x * 0.03 + tSec * 4) * 22 * amp + Math.sin(x * 0.013 - tSec * 2) * 8;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+  } else if (family === "neon_mandala") {
+    for (let layer = 0; layer < 3; layer += 1) {
+      const points = 12 + layer * 6;
+      const radius = 28 + layer * 18 + Math.sin(tSec * 1.8 + layer) * 5 * amp;
+      ctx.strokeStyle = layer % 2 ? accent : primary;
+      ctx.shadowColor = layer % 2 ? accent : primary;
+      ctx.beginPath();
+      for (let i = 0; i <= points; i += 1) {
+        const a = (Math.PI * 2 * i) / points + tSec * 0.35 * (layer + 1);
+        const r = radius + Math.sin(i * 2 + tSec * 2) * 8 * amp;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
     }
-    ctx.stroke();
-  } else if (family === "mirror_wave") {
-    ctx.beginPath();
-    for (let x = 0; x < width; x += 5) {
-      const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
-      const y = cy - d;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+  } else if (family === "laser_fan") {
+    const beams = 18;
+    for (let i = 0; i < beams; i += 1) {
+      const a = -Math.PI * 0.85 + (Math.PI * 1.7 * i) / (beams - 1);
+      const len = 54 + 34 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.7)) * amp;
+      ctx.strokeStyle = i % 2 ? accent : primary;
+      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + 44);
+      ctx.lineTo(cx + Math.cos(a) * len, cy + 44 + Math.sin(a) * len);
+      ctx.stroke();
     }
-    ctx.stroke();
-
-    ctx.strokeStyle = accent;
-    ctx.shadowColor = accent;
-    ctx.beginPath();
-    for (let x = 0; x < width; x += 5) {
-      const d = Math.sin(x * 0.035 + tSec * 3.5) * 26 * amp;
-      const y = cy + d;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  } else if (family === "center_bars") {
-    const bars = 44;
-    const barW = width / bars;
-    for (let i = 0; i < bars; i += 1) {
-      const x = i * barW + 1;
-      const h = 16 + 48 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.45)) * amp;
-      ctx.fillRect(x, cy - h / 2, Math.max(barW - 2, 2), h);
-    }
-  } else if (family === "tunnel") {
+  } else if (family === "bass_tunnel") {
     for (let i = 0; i < 6; i += 1) {
       const r = 24 + i * 18 + Math.sin(tSec * 2.2 + i) * 4 * amp;
       ctx.strokeStyle = i % 2 ? accent : primary;
@@ -567,10 +560,15 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
     }
-  } else if (family === "pulse_core") {
+  } else if (family === "plasma_orb") {
     const r = 18 + Math.sin(tSec * 5) * 6 * amp;
+    const plasma = ctx.createRadialGradient(cx, cy, 0, cx, cy, r + 44);
+    plasma.addColorStop(0, primary);
+    plasma.addColorStop(0.45, `${accent}cc`);
+    plasma.addColorStop(1, "transparent");
+    ctx.fillStyle = plasma;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r + 34, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = accent;
     ctx.shadowColor = accent;
@@ -617,19 +615,19 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.arc(x, y, 4 + i, 0, Math.PI * 2);
       ctx.fill();
     }
-  } else if (family === "spiral_beam") {
-    ctx.strokeStyle = accent;
-    ctx.shadowColor = accent;
-    ctx.beginPath();
-    for (let i = 0; i < 120; i += 1) {
-      const a = i * 0.22 + tSec * 1.8;
-      const r = 2 + i * 0.45;
-      const x = cx + Math.cos(a) * r;
-      const y = cy + Math.sin(a) * r * 0.55;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+  } else if (family === "particle_fountain") {
+    for (let i = 0; i < 72; i += 1) {
+      const phase = (i * 0.137 + tSec * 0.7) % 1;
+      const spread = (i % 18) - 8.5;
+      const x = cx + spread * 8 + Math.sin(tSec * 2 + i) * 6;
+      const y = height - 22 - phase * 145;
+      const size = 2 + 3 * (1 - phase) * amp;
+      ctx.fillStyle = i % 2 ? accent : primary;
+      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.stroke();
   }
 
   ctx.restore();
@@ -707,8 +705,8 @@ async function uploadAndRender() {
   }
 
   const engine = "milk";
-  const style = milkPresetInput.value || "ring_neon";
-  const milkPreset = milkPresetInput.value || "ring_neon";
+  const style = milkPresetInput.value || "neon_mandala";
+  const milkPreset = milkPresetInput.value || "neon_mandala";
   const mode = modeSelect.value || "demo";
   const orientation = orientationSelect.value || "landscape";
   const customText = customTextInput.value.trim();
@@ -733,26 +731,22 @@ async function uploadAndRender() {
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
 
-    if (userId) formData.append("user_id", String(userId));
+    const uploadUserId = tg?.initDataUnsafe?.user?.id || null;
+
+    formData.append("user_id", uploadUserId ? String(uploadUserId) : "");
     if (telegramInitData) formData.append("init_data", telegramInitData);
+    formData.append("platform", tg?.platform || "");
     if (telegramUser?.username) formData.append("username", telegramUser.username);
     if (telegramUser?.first_name) formData.append("first_name", telegramUser.first_name);
     if (telegramUser?.language_code) formData.append("language_code", telegramUser.language_code);
     if (backgroundFile) formData.append("background_file", backgroundFile, backgroundFile.name);
     if (customText) formData.append("custom_text", customText);
 
-    console.log("TMA upload payload", {
-      engine,
-      style,
-      milk_preset: milkPreset,
-      mode,
-      orientation,
-      background_dim: backgroundDim,
-      visualizer_color: visualizerColor,
-      accent_color: accentColor,
-      user_id: userId,
-      has_background_file: Boolean(backgroundFile),
-      custom_text: customText,
+    console.log("TMA debug", {
+      platform: tg?.platform,
+      initDataLength: tg?.initData?.length || 0,
+      userId: tg?.initDataUnsafe?.user?.id || null,
+      preset: milkPreset,
     });
 
     const { response: uploadResponse, payload: uploadData } = await fetchJson(
@@ -849,7 +843,7 @@ function resetForm() {
   if (engineSelect) engineSelect.value = "milk";
   if (styleField) styleField.style.display = "none";
 
-  milkPresetInput.value = "ring_neon";
+  milkPresetInput.value = "neon_mandala";
   modeSelect.value = "demo";
   orientationSelect.value = "portrait";
   customTextInput.value = "";
