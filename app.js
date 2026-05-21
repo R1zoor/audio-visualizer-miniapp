@@ -5,6 +5,7 @@ const tg = window.Telegram?.WebApp || null;
 let userId = null;
 let telegramInitData = "";
 let telegramUser = null;
+let hasLoggedTelegramBootstrap = false;
 
 /* DOM refs */
 const audioFileInput = document.getElementById("audioFile");
@@ -46,103 +47,135 @@ let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 
-let accessState = {
-  renderTokens: 0,
-  fullModeAvailable: false,
-  accessReason: "none",
-};
-
-let lastAccessFetchError = null;
-
-function formatAccessFetchError(endpoint, status, responseSnippet, errorMessage) {
-  const parts = [];
-  if (endpoint) parts.push(endpoint);
-  if (status !== undefined && status !== null) parts.push(`status ${status}`);
-  if (errorMessage) parts.push(errorMessage);
-  if (responseSnippet) parts.push(`response: ${responseSnippet}`);
-  return parts.join(" | ");
+function buildAccessUrl(path, context) {
+  const url = new URL(`${API_BASE}${path}`);
+  appendTelegramContextToUrl(url, context);
+  return url.toString();
 }
 
-function formatAccessFetchUiMessage(endpoint, status, errorMessage) {
-  if (status != null) {
-    return `Unable to verify full mode access (${endpoint}: ${status}). Please try again.`;
-  }
-  if (errorMessage) {
-    return `Unable to verify full mode access (${endpoint}: ${errorMessage}). Please try again.`;
-  }
-  return "Unable to verify full mode access. Please try again.";
+function isUsableAccessPayload(payload) {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      (
+        payload.full_render_credits !== undefined ||
+        payload.render_tokens !== undefined ||
+        payload.full_mode_available !== undefined ||
+        payload.access_reason !== undefined
+      )
+  );
 }
 
-function resolveAccessState(data = {}) {
-  const renderTokens = Number(data.full_render_credits ?? data.render_tokens ?? 0);
-  const fullModeAvailable = Boolean(data.full_mode_available || renderTokens > 0);
-  const accessReason = data.access_reason || (renderTokens > 0 ? "tokens" : "none");
+function normalizeAccessSnapshot(payload) {
+  const renderTokens = Number(payload.full_render_credits ?? payload.render_tokens ?? 0);
 
   return {
-    renderTokens,
-    fullModeAvailable,
-    accessReason,
+    fullRenderCredits: Number.isFinite(renderTokens) ? renderTokens : 0,
+    renderTokens: Number.isFinite(renderTokens) ? renderTokens : 0,
+    fullModeAvailable: payload.full_mode_available === true,
+    accessReason: payload.access_reason || "none",
   };
 }
 
-function updateAccessState(data = {}) {
-  accessState = resolveAccessState(data);
-}
+async function fetchAccessSnapshot(path, context) {
+  const url = buildAccessUrl(path, context);
+  const headers = buildTelegramAuthHeaders(context);
 
-async function fetchAccessInfo(endpoint) {
   try {
-    const { response, payload } = await fetchJson(endpoint, { method: "GET" }, 15000);
-    if (response.ok && payload && (payload.full_render_credits !== undefined || payload.render_tokens !== undefined || payload.full_mode_available !== undefined)) {
-      lastAccessFetchError = null;
-      return payload;
+    console.debug("[access] request", {
+      path,
+      hasAuthHeader: Boolean(headers["X-Telegram-Init-Data"]),
+      initDataLength: context.init_data ? context.init_data.length : 0,
+    });
+
+    const { response, payload } = await fetchJson(url, { method: "GET", headers }, 15000);
+    console.debug("[access] response", {
+      path,
+      status: response.status,
+    });
+
+    if (response.ok && isUsableAccessPayload(payload)) {
+      return { ok: true, path, snapshot: normalizeAccessSnapshot(payload) };
     }
 
-    const responseText = payload
-      ? typeof payload === "string"
-        ? payload
-        : JSON.stringify(payload)
-      : "";
-    const snippet = responseText.replace(/\s+/g, " ").trim().slice(0, 200);
-    const message = response.ok ? "invalid access response" : `HTTP ${response.status}`;
-    const errorDetails = formatAccessFetchError(endpoint, response.status, snippet, message);
-    lastAccessFetchError = message;
-    console.warn("Access fetch failed", {
-      endpoint,
-      url: endpoint,
+    console.warn("Access preflight failed", {
+      path,
       status: response.status,
-      responseSnippet: snippet,
-      errorMessage: message,
-      errorDetails,
+      payload,
     });
+    if (response.status === 401) {
+      console.warn("[access] endpoint returned 401:", path);
+    }
+    return {
+      ok: false,
+      path,
+      status: response.status,
+      message: response.ok ? "invalid access response" : `HTTP ${response.status}`,
+    };
   } catch (error) {
-    const message = error?.message || "network error";
-    const errorDetails = formatAccessFetchError(endpoint, null, null, message);
-    lastAccessFetchError = message;
-    console.error("Access fetch failed", {
-      endpoint,
-      url: endpoint,
-      errorMessage: message,
-      errorDetails,
+    console.warn("Access preflight failed", {
+      path,
+      error,
     });
+    return {
+      ok: false,
+      path,
+      message: error?.message || "network error",
+    };
   }
-  return null;
 }
 
-async function refreshAccessState() {
-  const balanceData = await fetchAccessInfo(`${API_BASE}/balance`);
-  if (balanceData) {
-    updateAccessState(balanceData);
-    return true;
+async function verifyFullModeAccess() {
+  initTelegramContext();
+  const context = buildTelegramUserContext();
+  debugTelegramUserContext("preflight", context);
+
+  if (!context.hasAuthGradeInitData) {
+    console.warn("Telegram auth-grade initData is missing; cannot verify Full mode access", {
+      hasUserId: Boolean(context.user_id),
+      initDataLength: context.init_data ? context.init_data.length : 0,
+      hasHash: context.hasHash,
+      hasQueryId: context.hasQueryId,
+      platform: context.platform,
+    });
+    return { allowed: false, reason: "no_telegram_context" };
   }
 
-  const planData = await fetchAccessInfo(`${API_BASE}/my_plan`);
-  if (planData) {
-    updateAccessState(planData);
-    return true;
+  const balanceResult = await fetchAccessSnapshot("/balance", context);
+  if (balanceResult.ok) {
+    return balanceResult.snapshot.fullModeAvailable
+      ? { allowed: true, source: "/balance", snapshot: balanceResult.snapshot }
+      : { allowed: false, source: "/balance", reason: "no_access", snapshot: balanceResult.snapshot };
   }
 
-  // If no backend access response is available, keep current defaults.
-  return false;
+  const planResult = await fetchAccessSnapshot("/my_plan", context);
+  if (planResult.ok) {
+    return planResult.snapshot.fullModeAvailable
+      ? { allowed: true, source: "/my_plan", snapshot: planResult.snapshot }
+      : { allowed: false, source: "/my_plan", reason: "no_access", snapshot: planResult.snapshot };
+  }
+
+  return {
+    allowed: false,
+    reason: balanceResult.status === 401 && planResult.status === 401 ? "auth_failed" : "unverified",
+    errors: [balanceResult, planResult],
+  };
+}
+
+function fullAccessRequiredMessage() {
+  return "Full mode requires render tokens. Please top up your balance or use Demo mode.";
+}
+
+function accessVerificationFailedMessage() {
+  return "Unable to verify Full mode access. Please try again or use Demo mode.";
+}
+
+function telegramContextRequiredMessage() {
+  return "Full mode access can only be verified inside Telegram Mini App.";
+}
+
+function accessAuthFailedMessage() {
+  return "Unable to verify Full mode access. Please reopen the Mini App from Telegram and try again.";
 }
 
 /* Presets */
@@ -321,20 +354,97 @@ function hideStatus() {
 }
 
 /* Telegram */
+function getTelegramWebApp() {
+  return window.Telegram?.WebApp || tg || null;
+}
+
 function initTelegramContext() {
-  if (!tg) return;
+  const webApp = getTelegramWebApp();
+
+  if (!hasLoggedTelegramBootstrap) {
+    console.debug("[access] Telegram present:", Boolean(window.Telegram));
+    console.debug("[access] Telegram WebApp present:", Boolean(webApp));
+    hasLoggedTelegramBootstrap = true;
+  }
+
+  if (!webApp) return;
 
   try {
-    tg.ready();
+    webApp.ready();
   } catch (_) {}
 
   try {
-    tg.expand();
+    webApp.expand();
   } catch (_) {}
 
-  telegramUser = tg.initDataUnsafe?.user || tg.initDataUnsafe?.receiver || null;
-  userId = tg.initDataUnsafe?.user?.id || null;
-  telegramInitData = tg.initData || "";
+  telegramUser = webApp.initDataUnsafe?.user || webApp.initDataUnsafe?.receiver || null;
+  userId = telegramUser?.id || null;
+  telegramInitData = webApp.initData || "";
+}
+
+function buildTelegramUserContext() {
+  const webApp = getTelegramWebApp();
+  const webAppUser = webApp?.initDataUnsafe?.user || webApp?.initDataUnsafe?.receiver || null;
+  const currentUser = webAppUser || telegramUser || null;
+  const initData = webApp?.initData || "";
+  const currentUserId = currentUser?.id || userId || null;
+  const initParams = new URLSearchParams(initData);
+  const hasHash = initParams.has("hash");
+
+  return {
+    init_data: initData,
+    user_id: currentUserId ? String(currentUserId) : "",
+    platform: webApp?.platform || tg?.platform || "",
+    username: currentUser?.username || "",
+    first_name: currentUser?.first_name || "",
+    language_code: currentUser?.language_code || "",
+    hasInitData: Boolean(initData),
+    hasAuthGradeInitData: Boolean(initData && initData.length > 20 && hasHash),
+    hasQueryId: initParams.has("query_id"),
+    hasHash,
+    hasUnsafeUserId: Boolean(currentUser?.id),
+    telegramPresent: Boolean(window.Telegram),
+    webAppPresent: Boolean(webApp),
+  };
+}
+
+function debugTelegramUserContext(scope, context) {
+  console.debug(`[access] ${scope} Telegram present:`, context.telegramPresent);
+  console.debug(`[access] ${scope} Telegram WebApp present:`, context.webAppPresent);
+  console.debug(`[access] ${scope} initData length:`, context.init_data ? context.init_data.length : 0);
+  console.debug(`[access] ${scope} initData has query_id:`, context.hasQueryId);
+  console.debug(`[access] ${scope} initData has hash:`, context.hasHash);
+  console.debug(`[access] ${scope} initDataUnsafe user.id present:`, context.hasUnsafeUserId);
+}
+
+function buildTelegramAuthHeaders(context = buildTelegramUserContext()) {
+  if (!context.init_data) {
+    console.warn("[access] Telegram initData is empty; auth header will not be sent");
+    return {};
+  }
+
+  console.debug("[access] sending X-Telegram-Init-Data header:", {
+    initDataLength: context.init_data.length,
+  });
+  return { "X-Telegram-Init-Data": context.init_data };
+}
+
+function appendTelegramContextToFormData(formData, context = buildTelegramUserContext()) {
+  formData.append("user_id", context.user_id);
+  if (context.init_data) formData.append("init_data", context.init_data);
+  formData.append("platform", context.platform);
+  if (context.username) formData.append("username", context.username);
+  if (context.first_name) formData.append("first_name", context.first_name);
+  if (context.language_code) formData.append("language_code", context.language_code);
+}
+
+function appendTelegramContextToUrl(url, context = buildTelegramUserContext()) {
+  if (context.user_id) url.searchParams.set("user_id", context.user_id);
+  if (context.platform) url.searchParams.set("platform", context.platform);
+  if (context.username) url.searchParams.set("username", context.username);
+  if (context.first_name) url.searchParams.set("first_name", context.first_name);
+  if (context.language_code) url.searchParams.set("language_code", context.language_code);
+  return url;
 }
 
 /* Background dim UI */
@@ -818,16 +928,22 @@ async function uploadAndRender() {
     await checkHealth();
 
     if (mode === "full") {
-      const hasAccessInfo = await refreshAccessState();
-      if (!hasAccessInfo) {
-        setStatus(formatStatusHtml(formatAccessFetchUiMessage("balance/my_plan", null, lastAccessFetchError)), "error");
-        return;
-      }
+      const accessResult = await verifyFullModeAccess();
+      if (!accessResult.allowed) {
+        console.warn("Full mode access preflight blocked render", accessResult);
+        let message = fullAccessRequiredMessage();
+        if (accessResult.reason === "no_telegram_context") {
+          message = telegramContextRequiredMessage();
+        } else if (accessResult.reason === "auth_failed") {
+          message = accessAuthFailedMessage();
+        } else if (accessResult.reason === "unverified") {
+          message = accessVerificationFailedMessage();
+        }
 
-      if (!accessState.fullModeAvailable && accessState.renderTokens <= 0) {
-        setStatus("Full mode requires render tokens", "error");
+        setStatus(message, "error");
         return;
       }
+      console.debug("Full mode access preflight passed", accessResult);
     }
 
     setStatus(t("uploading"), "info");
@@ -843,21 +959,15 @@ async function uploadAndRender() {
     formData.append("visualizer_color", visualizerColor);
     formData.append("accent_color", accentColor);
 
-    const uploadUserId = tg?.initDataUnsafe?.user?.id || null;
-
-    formData.append("user_id", uploadUserId ? String(uploadUserId) : "");
-    if (telegramInitData) formData.append("init_data", telegramInitData);
-    formData.append("platform", tg?.platform || "");
-    if (telegramUser?.username) formData.append("username", telegramUser.username);
-    if (telegramUser?.first_name) formData.append("first_name", telegramUser.first_name);
-    if (telegramUser?.language_code) formData.append("language_code", telegramUser.language_code);
+    const telegramContext = buildTelegramUserContext();
+    appendTelegramContextToFormData(formData, telegramContext);
     if (backgroundFile) formData.append("background_file", backgroundFile, backgroundFile.name);
     if (customText) formData.append("custom_text", customText);
 
     console.log("TMA debug", {
       platform: tg?.platform,
-      initDataLength: tg?.initData?.length || 0,
-      userId: tg?.initDataUnsafe?.user?.id || null,
+      initDataLength: telegramContext.init_data.length,
+      userId: telegramContext.user_id || null,
       preset: milkPreset,
     });
 
@@ -1009,7 +1119,6 @@ resetButton?.addEventListener("click", resetForm);
 /* Initial */
 orientationSelect.value = "portrait";
 initTelegramContext();
-refreshAccessState();
 applyTranslations();
 updateColorControlAppearance(visualizerColorInput, visualizerColorText, "#28c7e0");
 updateColorControlAppearance(accentColorInput, accentColorText, "#7c4dff");
