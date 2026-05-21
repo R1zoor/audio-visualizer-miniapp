@@ -52,6 +52,27 @@ let accessState = {
   accessReason: "none",
 };
 
+let lastAccessFetchError = null;
+
+function formatAccessFetchError(endpoint, status, responseSnippet, errorMessage) {
+  const parts = [];
+  if (endpoint) parts.push(endpoint);
+  if (status !== undefined && status !== null) parts.push(`status ${status}`);
+  if (errorMessage) parts.push(errorMessage);
+  if (responseSnippet) parts.push(`response: ${responseSnippet}`);
+  return parts.join(" | ");
+}
+
+function formatAccessFetchUiMessage(endpoint, status, errorMessage) {
+  if (status != null) {
+    return `Unable to verify full mode access (${endpoint}: ${status}). Please try again.`;
+  }
+  if (errorMessage) {
+    return `Unable to verify full mode access (${endpoint}: ${errorMessage}). Please try again.`;
+  }
+  return "Unable to verify full mode access. Please try again.";
+}
+
 function resolveAccessState(data = {}) {
   const renderTokens = Number(data.full_render_credits ?? data.render_tokens ?? 0);
   const fullModeAvailable = Boolean(data.full_mode_available || renderTokens > 0);
@@ -72,10 +93,37 @@ async function fetchAccessInfo(endpoint) {
   try {
     const { response, payload } = await fetchJson(endpoint, { method: "GET" }, 15000);
     if (response.ok && payload && (payload.full_render_credits !== undefined || payload.render_tokens !== undefined || payload.full_mode_available !== undefined)) {
+      lastAccessFetchError = null;
       return payload;
     }
+
+    const responseText = payload
+      ? typeof payload === "string"
+        ? payload
+        : JSON.stringify(payload)
+      : "";
+    const snippet = responseText.replace(/\s+/g, " ").trim().slice(0, 200);
+    const message = response.ok ? "invalid access response" : `HTTP ${response.status}`;
+    const errorDetails = formatAccessFetchError(endpoint, response.status, snippet, message);
+    lastAccessFetchError = message;
+    console.warn("Access fetch failed", {
+      endpoint,
+      url: endpoint,
+      status: response.status,
+      responseSnippet: snippet,
+      errorMessage: message,
+      errorDetails,
+    });
   } catch (error) {
-    console.debug("Access fetch failed", endpoint, error?.message);
+    const message = error?.message || "network error";
+    const errorDetails = formatAccessFetchError(endpoint, null, null, message);
+    lastAccessFetchError = message;
+    console.error("Access fetch failed", {
+      endpoint,
+      url: endpoint,
+      errorMessage: message,
+      errorDetails,
+    });
   }
   return null;
 }
@@ -772,7 +820,7 @@ async function uploadAndRender() {
     if (mode === "full") {
       const hasAccessInfo = await refreshAccessState();
       if (!hasAccessInfo) {
-        setStatus("Unable to verify full mode access. Please try again.", "error");
+        setStatus(formatStatusHtml(formatAccessFetchUiMessage("balance/my_plan", null, lastAccessFetchError)), "error");
         return;
       }
 
