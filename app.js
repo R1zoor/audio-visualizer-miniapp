@@ -46,6 +46,57 @@ let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 
+let accessState = {
+  renderTokens: 0,
+  fullModeAvailable: false,
+  accessReason: "none",
+};
+
+function resolveAccessState(data = {}) {
+  const renderTokens = Number(data.full_render_credits ?? data.render_tokens ?? 0);
+  const fullModeAvailable = Boolean(data.full_mode_available || renderTokens > 0);
+  const accessReason = data.access_reason || (renderTokens > 0 ? "tokens" : "none");
+
+  return {
+    renderTokens,
+    fullModeAvailable,
+    accessReason,
+  };
+}
+
+function updateAccessState(data = {}) {
+  accessState = resolveAccessState(data);
+}
+
+async function fetchAccessInfo(endpoint) {
+  try {
+    const { response, payload } = await fetchJson(endpoint, { method: "GET" }, 15000);
+    if (response.ok && payload && (payload.full_render_credits !== undefined || payload.render_tokens !== undefined || payload.full_mode_available !== undefined)) {
+      return payload;
+    }
+  } catch (error) {
+    console.debug("Access fetch failed", endpoint, error?.message);
+  }
+  return null;
+}
+
+async function refreshAccessState() {
+  const balanceData = await fetchAccessInfo(`${API_BASE}/balance`);
+  if (balanceData) {
+    updateAccessState(balanceData);
+    return true;
+  }
+
+  const planData = await fetchAccessInfo(`${API_BASE}/my_plan`);
+  if (planData) {
+    updateAccessState(planData);
+    return true;
+  }
+
+  // If no backend access response is available, keep current defaults.
+  return false;
+}
+
 /* Presets */
 const milkPresets = [
   { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
@@ -718,6 +769,19 @@ async function uploadAndRender() {
     setStatus(t("checkingApi"), "info");
     await checkHealth();
 
+    if (mode === "full") {
+      const hasAccessInfo = await refreshAccessState();
+      if (!hasAccessInfo) {
+        setStatus("Unable to verify full mode access. Please try again.", "error");
+        return;
+      }
+
+      if (!accessState.fullModeAvailable && accessState.renderTokens <= 0) {
+        setStatus("Full mode requires render tokens", "error");
+        return;
+      }
+    }
+
     setStatus(t("uploading"), "info");
 
     const formData = new FormData();
@@ -897,6 +961,7 @@ resetButton?.addEventListener("click", resetForm);
 /* Initial */
 orientationSelect.value = "portrait";
 initTelegramContext();
+refreshAccessState();
 applyTranslations();
 updateColorControlAppearance(visualizerColorInput, visualizerColorText, "#28c7e0");
 updateColorControlAppearance(accentColorInput, accentColorText, "#7c4dff");
