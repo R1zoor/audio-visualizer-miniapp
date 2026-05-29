@@ -705,6 +705,7 @@ function extractErrorMessage(payload, fallback = "Request failed.") {
     if (typeof payload.error.code === "string" && payload.error.code.trim()) return payload.error.code;
   }
   if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail;
+  if (typeof payload.user_message === "string" && payload.user_message.trim()) return payload.user_message;
   if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
 
   if (Array.isArray(payload.detail)) {
@@ -1043,6 +1044,66 @@ function buildDownloadUrl(downloadUrl) {
   return `${API_BASE}${downloadUrl}`;
 }
 
+function normalizeRenderStatus(payload) {
+  const rawStatus =
+    payload?.status ??
+    payload?.state ??
+    payload?.result?.status ??
+    payload?.result?.state ??
+    "";
+  const value = String(rawStatus).trim().toLowerCase();
+
+  if (["done", "success", "succeeded", "complete", "completed"].includes(value)) return "done";
+  if (["failed", "failure", "error", "revoked"].includes(value)) return "failed";
+  if (["processing", "progress", "started", "running"].includes(value)) return "processing";
+  if (["queued", "pending", "received", "retry"].includes(value)) return "queued";
+  return value || "unknown";
+}
+
+function extractRenderProgress(payload) {
+  const candidates = [
+    payload?.percent,
+    payload?.progress,
+    payload?.meta?.percent,
+    payload?.info?.percent,
+    payload?.result?.percent,
+    payload?.result?.progress,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    const percent = Number(candidate);
+    if (Number.isFinite(percent)) {
+      return Math.max(0, Math.min(100, percent));
+    }
+  }
+
+  return null;
+}
+
+function extractDownloadUrl(payload, taskId) {
+  const directUrl =
+    payload?.download_url ??
+    payload?.downloadUrl ??
+    payload?.result?.download_url ??
+    payload?.result?.downloadUrl ??
+    "";
+  if (directUrl) return buildDownloadUrl(String(directUrl));
+
+  const resultFile = payload?.result_file ?? payload?.resultFile ?? payload?.result?.result_file ?? "";
+  if (resultFile && taskId) return buildDownloadUrl(`/download/${taskId}`);
+
+  return taskId ? buildDownloadUrl(`/download/${taskId}`) : "";
+}
+
+function isTemporaryStatusError(value) {
+  return [408, 429, 500, 502, 503, 504].includes(Number(value));
+}
+
+function transientStatusMessage(errorCount, percent) {
+  return `${t("statusUnavailable")} ${t("progress")}: ${percent}% (${errorCount})`;
+}
+
 /* Main upload/render */
 async function uploadAndRender() {
   const file = audioFileInput.files?.[0];
@@ -1152,58 +1213,102 @@ async function uploadAndRender() {
 
     setStatus(t("queued"), "info");
 
-    let attempts = 0;
-    const maxAttempts = 180;
+    let statusNetworkErrors = 0;
+    let lastKnownPercent = 0;
 
-    while (attempts < maxAttempts) {
+    while (true) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const { response: statusResponse, payload: statusData } = await fetchJson(
-        `${API_BASE}/status/${taskId}`,
-        { method: "GET" },
-        30000
-      );
+      let statusResponse;
+      let statusData;
+
+      try {
+        const statusResult = await fetchJson(
+          `${API_BASE}/status/${taskId}`,
+          { method: "GET" },
+          30000
+        );
+        statusResponse = statusResult.response;
+        statusData = statusResult.payload;
+      } catch (error) {
+        statusNetworkErrors += 1;
+        setStatus(transientStatusMessage(statusNetworkErrors, lastKnownPercent), "info");
+        continue;
+      }
 
       if (!statusResponse.ok) {
+        if (isTemporaryStatusError(statusResponse.status)) {
+          statusNetworkErrors += 1;
+          setStatus(transientStatusMessage(statusNetworkErrors, lastKnownPercent), "info");
+          continue;
+        }
+
         const errorMessage = extractErrorMessage(statusData, t("statusUnavailable"));
         setStatus(formatStatusHtml(errorMessage), "error");
         return;
       }
 
-      if (statusData.status === "queued" || statusData.status === "pending") {
+      statusNetworkErrors = 0;
+      console.debug("[render] status poll response", {
+        taskId,
+        httpStatus: statusResponse.status,
+        payload: statusData,
+      });
+
+      const renderStatus = normalizeRenderStatus(statusData);
+      const receivedProgress = extractRenderProgress(statusData);
+      console.debug("[render] received status=", renderStatus);
+      console.debug("[render] received progress=", receivedProgress);
+
+      if (receivedProgress !== null) {
+        lastKnownPercent = receivedProgress;
+      }
+
+      if (renderStatus === "queued") {
         setStatus(t("queued"), "info");
       } else if (
-        statusData.status === "processing" ||
-        statusData.status === "progress" ||
-        statusData.status === "started"
+        renderStatus === "processing"
       ) {
-        const percent = Number(statusData.percent ?? 0);
+        const percent = lastKnownPercent;
         setStatus(`${t("processing")}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`, "info");
-      } else if (statusData.status === "failed" || statusData.status === "failure") {
+      } else if (renderStatus === "failed") {
         const errorText = extractErrorMessage(
-          { error: statusData.error, detail: statusData.detail, message: statusData.message },
+          {
+            error: statusData?.error,
+            detail: statusData?.detail,
+            user_message: statusData?.user_message,
+            message: statusData?.message,
+            result: statusData?.result,
+          },
           t("failed")
         );
+        console.debug("[render] render failed UI state entered", {
+          taskId,
+          errorText,
+          payload: statusData,
+        });
         setStatus(`${t("failed")}:\n${formatStatusHtml(errorText)}`, "error");
         return;
-      } else if (statusData.status === "done" || statusData.status === "success") {
-        const url = buildDownloadUrl(statusData.download_url);
+      } else if (renderStatus === "done") {
+        lastKnownPercent = 100;
+        const url = extractDownloadUrl(statusData, taskId);
         if (!url) {
           setStatus(t("badResponse"), "error");
           return;
         }
 
+        console.debug("[render] render completed UI state entered", {
+          taskId,
+          downloadUrl: url,
+          payload: statusData,
+        });
         setStatus(
           `${t("doneChat")}<br><br><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
           "success"
         );
         return;
       }
-
-      attempts += 1;
     }
-
-    setStatus(t("requestTimeout"), "error");
   } catch (error) {
     const message = error?.message || t("networkError");
     setStatus(formatStatusHtml(message), "error");
