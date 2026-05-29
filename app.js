@@ -1,6 +1,8 @@
 const API_BASE = "https://lottery-probably-korea-museum.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
+const FULL_MAX_DURATION_SECONDS = 360;
+const LONG_FULL_TRACK_THRESHOLD_SECONDS = 180;
 const miniappSessionToken = new URLSearchParams(window.location.search).get(SESSION_TOKEN_PARAM) || "";
 
 /* Telegram context */
@@ -237,7 +239,9 @@ const i18n = {
     summaryDemo: "Demo",
     summaryDemoDesc: "Up to 30 seconds + watermark",
     summaryFull: "Full",
-    summaryFullDesc: "Full track without watermark",
+    summaryFullDesc: "Up to 6 minutes without watermark",
+    fullDurationExceeded: "Full mode supports audio up to 6 minutes.",
+    longFullTrackNote: "Long track, render may take longer.",
     summaryBackgroundDim: "Background dim",
     renderButton: "Create Video",
     resetButton: "Reset",
@@ -258,6 +262,7 @@ const i18n = {
     validationFailed: "Validation error.",
     requestTimeout: "Request timeout. Please try again.",
     statusUnavailable: "Status request failed.",
+    progress: "Progress",
   },
   ru: {
     badge: "● MP3/WAV → MP4 visualizer",
@@ -291,7 +296,9 @@ const i18n = {
     summaryDemo: "Demo",
     summaryDemoDesc: "До 30 секунд + вотермарка",
     summaryFull: "Full",
-    summaryFullDesc: "Полный трек без вотермарки",
+    summaryFullDesc: "До 6 минут без вотермарки",
+    fullDurationExceeded: "Full mode supports audio up to 6 minutes.",
+    longFullTrackNote: "Long track, render may take longer.",
     summaryBackgroundDim: "Затемнение фона",
     renderButton: "Создать видео",
     resetButton: "Сбросить",
@@ -749,6 +756,28 @@ async function fetchJson(url, options = {}, timeoutMs = 30000) {
   return { response, payload };
 }
 
+function getAudioDurationSeconds(file) {
+  return new Promise((resolve) => {
+    const audio = document.createElement("audio");
+    const url = URL.createObjectURL(file);
+    let finished = false;
+
+    function cleanup(value) {
+      if (finished) return;
+      finished = true;
+      URL.revokeObjectURL(url);
+      audio.removeAttribute("src");
+      resolve(value);
+    }
+
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => cleanup(Number.isFinite(audio.duration) ? audio.duration : 0);
+    audio.onerror = () => cleanup(0);
+    audio.src = url;
+    window.setTimeout(() => cleanup(0), 5000);
+  });
+}
+
 /* Milk presets UI */
 function renderMilkPresets(list) {
   milkPresetGrid.innerHTML = "";
@@ -1101,7 +1130,7 @@ function isTemporaryStatusError(value) {
 }
 
 function transientStatusMessage(errorCount, percent) {
-  return `${t("statusUnavailable")} ${t("progress")}: ${percent}% (${errorCount})`;
+  return `${t("statusUnavailable")} Progress: ${percent}% (${errorCount})`;
 }
 
 /* Main upload/render */
@@ -1131,9 +1160,20 @@ async function uploadAndRender() {
   const orientation = orientationSelect.value || "landscape";
   const customText = customTextInput.value.trim();
   const backgroundDim = Number(backgroundDimInput.value || 35);
+  let audioDurationSeconds = 0;
+  let isLongFullTrack = false;
 
   try {
     renderButton.disabled = true;
+
+    if (mode === "full") {
+      audioDurationSeconds = await getAudioDurationSeconds(file);
+      if (audioDurationSeconds > FULL_MAX_DURATION_SECONDS) {
+        setStatus(t("fullDurationExceeded"), "error");
+        return;
+      }
+      isLongFullTrack = audioDurationSeconds > LONG_FULL_TRACK_THRESHOLD_SECONDS;
+    }
 
     setStatus(t("checkingApi"), "info");
     await checkHealth();
@@ -1211,7 +1251,7 @@ async function uploadAndRender() {
       return;
     }
 
-    setStatus(t("queued"), "info");
+    setStatus(isLongFullTrack ? `${t("queued")}\n${t("longFullTrackNote")}` : t("queued"), "info");
 
     let statusNetworkErrors = 0;
     let lastKnownPercent = 0;
@@ -1265,7 +1305,7 @@ async function uploadAndRender() {
       }
 
       if (renderStatus === "queued") {
-        setStatus(t("queued"), "info");
+        setStatus(isLongFullTrack ? `${t("queued")}\n${t("longFullTrackNote")}` : t("queued"), "info");
       } else if (
         renderStatus === "processing"
       ) {
