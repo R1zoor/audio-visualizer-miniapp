@@ -1,4 +1,5 @@
 const API_BASE = "https://valve-operated-apply-scientist.trycloudflare.com";
+const AUTH_INITDATA_RETRY_DELAY_MS = 700;
 
 /* Telegram context */
 const tg = window.Telegram?.WebApp || null;
@@ -445,6 +446,18 @@ function setAccessUiState(state, details = {}) {
   });
 }
 
+function logDemoNoContextTransition(details) {
+  console.warn("[access] switching to demo_no_context", {
+    hasTelegramObject: details.hasTelegramObject,
+    hasWebAppObject: details.hasWebAppObject,
+    initDataLengthBeforeReady: details.initDataLengthBeforeReady,
+    initDataLengthAfterReady: details.initDataLengthAfterReady,
+    initDataLengthBeforePreflight: details.initDataLengthBeforePreflight,
+    didAutoRetry: authAutoRetryUsed,
+    finalUiState: ACCESS_UI_STATES.DEMO_NO_CONTEXT,
+  });
+}
+
 function accessMessageForErrorCode(errorCode) {
   if (errorCode === "init_data_expired") {
     return "Telegram session expired. Please reopen the Mini App.";
@@ -467,20 +480,48 @@ function setRetryableAuthStatus(message, errorCode = "") {
 }
 
 async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = false, manualRetry = false } = {}) {
+  const webAppBeforeReady = getTelegramWebApp();
+  const initDataLengthBeforeReady = webAppBeforeReady?.initData ? webAppBeforeReady.initData.length : 0;
+
   initTelegramContext();
   const context = buildTelegramUserContext();
+  const initDataLengthAfterReady = context.init_data ? context.init_data.length : 0;
+  const initDataLengthBeforePreflight = initDataLengthAfterReady;
   debugTelegramUserContext(manualRetry ? "manual_retry" : "auth_check", context);
 
   console.info("[access] bootstrap", {
-    telegramPresent: context.telegramPresent,
-    webAppPresent: context.webAppPresent,
-    initDataLengthAfterReady: context.init_data ? context.init_data.length : 0,
+    hasTelegramObject: context.telegramPresent,
+    hasWebAppObject: context.webAppPresent,
+    initDataLengthBeforeReady,
+    initDataLengthAfterReady,
+    initDataLengthBeforePreflight,
     retryHappened: authAutoRetryUsed,
   });
 
   if (!context.init_data) {
+    if (allowAutoRetry && !authAutoRetryUsed) {
+      authAutoRetryUsed = true;
+      // Telegram Desktop may expose WebApp before initData is populated
+      console.info("[access] automatic retry scheduled for empty initData", {
+        hasTelegramObject: context.telegramPresent,
+        hasWebAppObject: context.webAppPresent,
+        initDataLengthBeforeReady,
+        initDataLengthAfterReady,
+        initDataLengthBeforePreflight,
+      });
+      await new Promise((resolve) => setTimeout(resolve, AUTH_INITDATA_RETRY_DELAY_MS));
+      return runTelegramAuthCheck({ allowAutoRetry: false, renderStatus, manualRetry: true });
+    }
+
     const result = { state: ACCESS_UI_STATES.DEMO_NO_CONTEXT, reason: "no_telegram_context" };
     lastAuthCheckResult = result;
+    logDemoNoContextTransition({
+      hasTelegramObject: context.telegramPresent,
+      hasWebAppObject: context.webAppPresent,
+      initDataLengthBeforeReady,
+      initDataLengthAfterReady,
+      initDataLengthBeforePreflight,
+    });
     setAccessUiState(ACCESS_UI_STATES.DEMO_NO_CONTEXT);
     if (renderStatus) setStatus(formatStatusHtml(telegramContextRequiredMessage()), "error");
     return result;
@@ -499,7 +540,7 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
     console.info("[access] automatic retry scheduled", {
       backendErrorCode: authError.errorCode || "",
     });
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, AUTH_INITDATA_RETRY_DELAY_MS));
     return runTelegramAuthCheck({ allowAutoRetry: false, renderStatus, manualRetry: true });
   }
 
