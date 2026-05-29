@@ -1,4 +1,4 @@
-const API_BASE = "https://valve-operated-apply-scientist.trycloudflare.com";
+const API_BASE = "https://lottery-probably-korea-museum.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const miniappSessionToken = new URLSearchParams(window.location.search).get(SESSION_TOKEN_PARAM) || "";
