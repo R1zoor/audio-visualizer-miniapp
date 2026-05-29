@@ -1,5 +1,7 @@
 const API_BASE = "https://valve-operated-apply-scientist.trycloudflare.com";
-const AUTH_INITDATA_RETRY_DELAY_MS = 700;
+const SESSION_AUTH_RETRY_DELAY_MS = 700;
+const SESSION_TOKEN_PARAM = "session_token";
+const miniappSessionToken = new URLSearchParams(window.location.search).get(SESSION_TOKEN_PARAM) || "";
 
 /* Telegram context */
 const tg = window.Telegram?.WebApp || null;
@@ -7,22 +9,23 @@ let userId = null;
 let telegramInitData = "";
 let telegramUser = null;
 let hasLoggedTelegramBootstrap = false;
-let accessUiState = "demo_no_context";
+let accessUiState = "auth_checking";
 let lastAuthCheckResult = null;
 let authAutoRetryUsed = false;
 
 const ACCESS_UI_STATES = {
-  DEMO_NO_CONTEXT: "demo_no_context",
+  SESSION_MISSING: "session_missing",
+  SESSION_EXPIRED: "session_expired",
+  SESSION_INVALID: "session_invalid",
   AUTH_CHECKING: "auth_checking",
   TELEGRAM_AUTH_ERROR: "telegram_auth_error",
   FULL_VERIFIED: "full_verified",
 };
 
 const AUTH_ERROR_CODES = new Set([
-  "missing_init_data",
-  "invalid_init_data_format",
-  "hash_mismatch",
-  "init_data_expired",
+  "missing_session_token",
+  "invalid_session",
+  "expired_session",
   "telegram_user_not_found",
 ]);
 
@@ -66,9 +69,8 @@ let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 
-function buildAccessUrl(path, context) {
+function buildAccessUrl(path) {
   const url = new URL(`${API_BASE}${path}`);
-  appendTelegramContextToUrl(url, context);
   return url.toString();
 }
 
@@ -97,14 +99,14 @@ function normalizeAccessSnapshot(payload) {
 }
 
 async function fetchAccessSnapshot(path, context) {
-  const url = buildAccessUrl(path, context);
-  const headers = buildTelegramAuthHeaders(context);
+  const url = buildAccessUrl(path);
+  const headers = buildSessionAuthHeaders();
 
   try {
     console.debug("[access] request", {
       path,
-      hasAuthHeader: Boolean(headers["X-Telegram-Init-Data"]),
-      initDataLength: context.init_data ? context.init_data.length : 0,
+      sessionTokenPresent: Boolean(miniappSessionToken),
+      initDataLengthDebug: context.init_data ? context.init_data.length : 0,
     });
 
     const { response, payload } = await fetchJson(url, { method: "GET", headers }, 15000);
@@ -151,11 +153,12 @@ async function fetchAccessSnapshot(path, context) {
 async function verifyFullModeAccess() {
   const authResult = await runTelegramAuthCheck({ allowAutoRetry: true, renderStatus: true });
 
-  if (authResult.state === ACCESS_UI_STATES.DEMO_NO_CONTEXT) {
-    return { allowed: false, reason: "no_telegram_context" };
-  }
-
-  if (authResult.state === ACCESS_UI_STATES.TELEGRAM_AUTH_ERROR) {
+  if (
+    authResult.state === ACCESS_UI_STATES.SESSION_MISSING ||
+    authResult.state === ACCESS_UI_STATES.SESSION_EXPIRED ||
+    authResult.state === ACCESS_UI_STATES.SESSION_INVALID ||
+    authResult.state === ACCESS_UI_STATES.TELEGRAM_AUTH_ERROR
+  ) {
     return { allowed: false, reason: "auth_failed", errorCode: authResult.errorCode, errors: authResult.errors };
   }
 
@@ -178,11 +181,11 @@ function accessVerificationFailedMessage() {
 }
 
 function telegramContextRequiredMessage() {
-  return "Full mode access can only be verified inside Telegram Mini App.\nYou are currently in demo mode.";
+  return "Open the visualizer from the Telegram bot.";
 }
 
 function accessAuthFailedMessage() {
-  return "Telegram session detected, but verification failed. Please reopen the Mini App from the bot.";
+  return "Open the visualizer from the Telegram bot.";
 }
 
 /* Presets */
@@ -446,26 +449,24 @@ function setAccessUiState(state, details = {}) {
   });
 }
 
-function logDemoNoContextTransition(details) {
-  console.warn("[access] switching to demo_no_context", {
-    hasTelegramObject: details.hasTelegramObject,
-    hasWebAppObject: details.hasWebAppObject,
-    initDataLengthBeforeReady: details.initDataLengthBeforeReady,
-    initDataLengthAfterReady: details.initDataLengthAfterReady,
-    initDataLengthBeforePreflight: details.initDataLengthBeforePreflight,
-    didAutoRetry: authAutoRetryUsed,
-    finalUiState: ACCESS_UI_STATES.DEMO_NO_CONTEXT,
-  });
-}
-
 function accessMessageForErrorCode(errorCode) {
-  if (errorCode === "init_data_expired") {
-    return "Telegram session expired. Please reopen the Mini App.";
+  if (errorCode === "missing_session_token") {
+    return "Open the visualizer from the Telegram bot.";
   }
-  if (errorCode === "hash_mismatch") {
-    return "Telegram session verification failed. Please reopen the Mini App from Telegram.";
+  if (errorCode === "expired_session") {
+    return "Session expired. Reopen the visualizer from the bot.";
+  }
+  if (errorCode === "invalid_session") {
+    return "Session is invalid. Reopen the visualizer from the bot.";
   }
   return accessAuthFailedMessage();
+}
+
+function uiStateForSessionError(errorCode) {
+  if (errorCode === "missing_session_token") return ACCESS_UI_STATES.SESSION_MISSING;
+  if (errorCode === "expired_session") return ACCESS_UI_STATES.SESSION_EXPIRED;
+  if (errorCode === "invalid_session") return ACCESS_UI_STATES.SESSION_INVALID;
+  return ACCESS_UI_STATES.TELEGRAM_AUTH_ERROR;
 }
 
 function setRetryableAuthStatus(message, errorCode = "") {
@@ -480,50 +481,26 @@ function setRetryableAuthStatus(message, errorCode = "") {
 }
 
 async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = false, manualRetry = false } = {}) {
-  const webAppBeforeReady = getTelegramWebApp();
-  const initDataLengthBeforeReady = webAppBeforeReady?.initData ? webAppBeforeReady.initData.length : 0;
-
   initTelegramContext();
   const context = buildTelegramUserContext();
-  const initDataLengthAfterReady = context.init_data ? context.init_data.length : 0;
-  const initDataLengthBeforePreflight = initDataLengthAfterReady;
   debugTelegramUserContext(manualRetry ? "manual_retry" : "auth_check", context);
 
   console.info("[access] bootstrap", {
-    hasTelegramObject: context.telegramPresent,
-    hasWebAppObject: context.webAppPresent,
-    initDataLengthBeforeReady,
-    initDataLengthAfterReady,
-    initDataLengthBeforePreflight,
+    sessionTokenPresent: Boolean(miniappSessionToken),
+    initDataLengthDebug: context.init_data ? context.init_data.length : 0,
     retryHappened: authAutoRetryUsed,
   });
 
-  if (!context.init_data) {
-    if (allowAutoRetry && !authAutoRetryUsed) {
-      authAutoRetryUsed = true;
-      // Telegram Desktop may expose WebApp before initData is populated
-      console.info("[access] automatic retry scheduled for empty initData", {
-        hasTelegramObject: context.telegramPresent,
-        hasWebAppObject: context.webAppPresent,
-        initDataLengthBeforeReady,
-        initDataLengthAfterReady,
-        initDataLengthBeforePreflight,
-      });
-      await new Promise((resolve) => setTimeout(resolve, AUTH_INITDATA_RETRY_DELAY_MS));
-      return runTelegramAuthCheck({ allowAutoRetry: false, renderStatus, manualRetry: true });
-    }
-
-    const result = { state: ACCESS_UI_STATES.DEMO_NO_CONTEXT, reason: "no_telegram_context" };
+  if (!miniappSessionToken) {
+    const result = {
+      state: ACCESS_UI_STATES.SESSION_MISSING,
+      reason: "missing_session_token",
+      errorCode: "missing_session_token",
+      errors: [],
+    };
     lastAuthCheckResult = result;
-    logDemoNoContextTransition({
-      hasTelegramObject: context.telegramPresent,
-      hasWebAppObject: context.webAppPresent,
-      initDataLengthBeforeReady,
-      initDataLengthAfterReady,
-      initDataLengthBeforePreflight,
-    });
-    setAccessUiState(ACCESS_UI_STATES.DEMO_NO_CONTEXT);
-    if (renderStatus) setStatus(formatStatusHtml(telegramContextRequiredMessage()), "error");
+    setAccessUiState(result.state, { errorCode: result.errorCode });
+    if (renderStatus) setRetryableAuthStatus(accessMessageForErrorCode(result.errorCode), result.errorCode);
     return result;
   }
 
@@ -540,19 +517,20 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
     console.info("[access] automatic retry scheduled", {
       backendErrorCode: authError.errorCode || "",
     });
-    await new Promise((resolve) => setTimeout(resolve, AUTH_INITDATA_RETRY_DELAY_MS));
+    await new Promise((resolve) => setTimeout(resolve, SESSION_AUTH_RETRY_DELAY_MS));
     return runTelegramAuthCheck({ allowAutoRetry: false, renderStatus, manualRetry: true });
   }
 
   if (authError) {
+    const state = uiStateForSessionError(authError.errorCode);
     const result = {
-      state: ACCESS_UI_STATES.TELEGRAM_AUTH_ERROR,
+      state,
       reason: "auth_failed",
       errorCode: authError.errorCode,
       errors,
     };
     lastAuthCheckResult = result;
-    setAccessUiState(ACCESS_UI_STATES.TELEGRAM_AUTH_ERROR, { errorCode: authError.errorCode });
+    setAccessUiState(state, { errorCode: authError.errorCode });
     if (renderStatus) setRetryableAuthStatus(accessMessageForErrorCode(authError.errorCode), authError.errorCode);
     return result;
   }
@@ -585,16 +563,16 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
   return result;
 }
 
-function buildTelegramAuthHeaders(context = buildTelegramUserContext()) {
-  if (!context.init_data) {
-    console.warn("[access] Telegram initData is empty; auth header will not be sent");
+function buildSessionAuthHeaders() {
+  if (!miniappSessionToken) {
+    console.warn("[access] session_token is missing; Authorization header will not be sent");
     return {};
   }
 
-  console.debug("[access] sending X-Telegram-Init-Data header:", {
-    initDataLength: context.init_data.length,
+  console.debug("[access] sending Authorization bearer token:", {
+    sessionTokenPresent: true,
   });
-  return { "X-Telegram-Init-Data": context.init_data };
+  return { Authorization: `Bearer ${miniappSessionToken}` };
 }
 
 function appendTelegramContextToFormData(formData, context = buildTelegramUserContext()) {
@@ -1147,6 +1125,7 @@ async function uploadAndRender() {
       `${API_BASE}/upload`,
       {
         method: "POST",
+        headers: buildSessionAuthHeaders(),
         body: formData,
       },
       120000
