@@ -1,4 +1,4 @@
-const API_BASE = "https://lottery-probably-korea-museum.trycloudflare.com";
+const API_BASE = "https://estates-quite-threaded-tea.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const FULL_MAX_DURATION_SECONDS = 360;
