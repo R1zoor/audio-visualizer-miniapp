@@ -266,6 +266,7 @@ const i18n = {
     uploading: "Uploading audio...",
     queued: "Rendering video...",
     processing: "Rendering video...",
+    finalizing: "Finalizing video...",
     readyTelegram: "Ready video will be sent to Telegram",
     sendingTelegram: "Sending to Telegram...",
     sentTelegram: "Video sent to Telegram",
@@ -332,6 +333,7 @@ const i18n = {
     uploading: "Uploading audio...",
     queued: "Rendering video...",
     processing: "Rendering video...",
+    finalizing: "Finalizing video...",
     readyTelegram: "Ready video will be sent to Telegram",
     sendingTelegram: "Sending to Telegram...",
     sentTelegram: "Video sent to Telegram",
@@ -1147,6 +1149,16 @@ function extractRenderProgress(payload) {
   return null;
 }
 
+function extractRenderStage(payload) {
+  return String(
+    payload?.stage ??
+      payload?.render_stage ??
+      payload?.result?.stage ??
+      payload?.result?.render_stage ??
+      ""
+  ).trim().toLowerCase();
+}
+
 function normalizeDeliveryStatus(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (["delivered", "sent", "success", "done"].includes(normalized)) return "delivered";
@@ -1367,8 +1379,10 @@ async function uploadAndRender() {
 
       const renderStatus = normalizeRenderStatus(statusData);
       const deliveryStatus = extractDeliveryStatus(statusData);
+      const renderStage = extractRenderStage(statusData);
       const receivedProgress = extractRenderProgress(statusData);
       console.debug("[render] received status=", renderStatus);
+      console.debug("[render] received stage=", renderStage || "none");
       console.debug("[render] received delivery=", deliveryStatus || "none");
       console.debug("[render] received progress=", receivedProgress);
 
@@ -1382,7 +1396,8 @@ async function uploadAndRender() {
         renderStatus === "processing"
       ) {
         const percent = lastKnownPercent;
-        setStatus(`${t("processing")}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`, "info");
+        const stageText = renderStage === "finalizing" ? t("finalizing") : t("processing");
+        setStatus(`${stageText}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`, "info");
       } else if (renderStatus === "failed") {
         const errorText = extractErrorMessage(
           {
