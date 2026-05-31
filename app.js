@@ -64,12 +64,21 @@ const statusBox = document.getElementById("statusBox");
 const langToggle = document.getElementById("langToggle");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
+const tokensBadge = document.getElementById("tokensBadge");
 
 /* State */
 let currentLang = "ru";
 let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
+let currentTokenBalance = null;
+
+function updateTokensBadge(value) {
+  currentTokenBalance = Number.isFinite(Number(value)) ? Number(value) : null;
+  if (tokensBadge) {
+    tokensBadge.textContent = `Tokens: ${currentTokenBalance === null ? "—" : currentTokenBalance}`;
+  }
+}
 
 function buildAccessUrl(path) {
   const url = new URL(`${API_BASE}${path}`);
@@ -250,15 +259,19 @@ const i18n = {
     checkingApi: "Checking API availability...",
     uploading: "Uploading file...",
     queued: "Task queued. Waiting for processing...",
-    processing: "Processing audio",
-    doneChat: "Done! MP4 is ready. Download it below.",
+    processing: "Rendering video...",
+    readyTelegram: "Ready video will be sent to Telegram",
+    sendingTelegram: "Sending video to Telegram...",
+    sentTelegram: "Video sent to your Telegram chat",
+    deliveryFailed: "Video is ready, but Telegram delivery failed",
+    doneChat: "Video sent to your Telegram chat",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
     invalidColor: "Invalid HEX color. Use format like #28c7e0.",
-    download: "Download MP4",
+    download: "Fallback download",
     validationFailed: "Validation error.",
     requestTimeout: "Request timeout. Please try again.",
     statusUnavailable: "Status request failed.",
@@ -307,15 +320,19 @@ const i18n = {
     checkingApi: "Проверяю API...",
     uploading: "Загружаю файл...",
     queued: "Задача поставлена в очередь. Жду обработку...",
-    processing: "Обработка аудио",
-    doneChat: "Готово! MP4 доступен ниже.",
+    processing: "Rendering video...",
+    readyTelegram: "Ready video will be sent to Telegram",
+    sendingTelegram: "Sending video to Telegram...",
+    sentTelegram: "Video sent to your Telegram chat",
+    deliveryFailed: "Video is ready, but Telegram delivery failed",
+    doneChat: "Video sent to your Telegram chat",
     failed: "Рендер завершился ошибкой",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не прошла.",
     resetDone: "Форма сброшена.",
     invalidColor: "Некорректный HEX-цвет. Используй формат вроде #28c7e0.",
-    download: "Скачать MP4",
+    download: "Fallback download",
     validationFailed: "Ошибка валидации.",
     requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
     statusUnavailable: "Не удалось получить статус.",
@@ -506,6 +523,7 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
       errors: [],
     };
     lastAuthCheckResult = result;
+    updateTokensBadge(null);
     setAccessUiState(result.state, { errorCode: result.errorCode });
     if (renderStatus) setRetryableAuthStatus(accessMessageForErrorCode(result.errorCode), result.errorCode);
     return result;
@@ -515,6 +533,11 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
   if (renderStatus) setStatus(t("checkingApi"), "info");
 
   const balanceResult = await fetchAccessSnapshot("/balance", context);
+  if (balanceResult.ok) {
+    updateTokensBadge(balanceResult.snapshot.renderTokens);
+  } else {
+    updateTokensBadge(null);
+  }
   const planResult = await fetchAccessSnapshot("/my_plan", context);
   const errors = [balanceResult, planResult].filter((result) => !result.ok);
   const authError = errors.find(isAuthRelatedAccessError);
@@ -1075,8 +1098,10 @@ function buildDownloadUrl(downloadUrl) {
 
 function normalizeRenderStatus(payload) {
   const rawStatus =
+    payload?.render_status ??
     payload?.status ??
     payload?.state ??
+    payload?.result?.render_status ??
     payload?.result?.status ??
     payload?.result?.state ??
     "";
@@ -1110,6 +1135,33 @@ function extractRenderProgress(payload) {
   return null;
 }
 
+function normalizeDeliveryStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["delivered", "sent", "success", "done"].includes(normalized)) return "delivered";
+  if (["failed", "failure", "error", "delivery_failed"].includes(normalized)) return "failed";
+  if (["pending", "sending", "queued", "processing"].includes(normalized)) return "pending";
+  return "";
+}
+
+function extractDeliveryStatus(payload) {
+  return normalizeDeliveryStatus(
+    payload?.delivery_status ??
+      payload?.telegram_delivery ??
+      payload?.result?.delivery_status ??
+      payload?.result?.telegram_delivery ??
+      ""
+  );
+}
+
+function extractDeliveryError(payload) {
+  return (
+    payload?.delivery_error ??
+    payload?.telegram_delivery_error ??
+    payload?.result?.delivery_error ??
+    ""
+  );
+}
+
 function extractDownloadUrl(payload, taskId) {
   const directUrl =
     payload?.download_url ??
@@ -1123,6 +1175,11 @@ function extractDownloadUrl(payload, taskId) {
   if (resultFile && taskId) return buildDownloadUrl(`/download/${taskId}`);
 
   return taskId ? buildDownloadUrl(`/download/${taskId}`) : "";
+}
+
+function renderDownloadFallback(url) {
+  if (!url) return "";
+  return `<br><br><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`;
 }
 
 function isTemporaryStatusError(value) {
@@ -1251,7 +1308,8 @@ async function uploadAndRender() {
       return;
     }
 
-    setStatus(isLongFullTrack ? `${t("queued")}\n${t("longFullTrackNote")}` : t("queued"), "info");
+    const uploadMessage = uploadData?.message || t("readyTelegram");
+    setStatus(isLongFullTrack ? `${uploadMessage}\n${t("longFullTrackNote")}` : uploadMessage, "info");
 
     let statusNetworkErrors = 0;
     let lastKnownPercent = 0;
@@ -1296,8 +1354,10 @@ async function uploadAndRender() {
       });
 
       const renderStatus = normalizeRenderStatus(statusData);
+      const deliveryStatus = extractDeliveryStatus(statusData);
       const receivedProgress = extractRenderProgress(statusData);
       console.debug("[render] received status=", renderStatus);
+      console.debug("[render] received delivery=", deliveryStatus || "none");
       console.debug("[render] received progress=", receivedProgress);
 
       if (receivedProgress !== null) {
@@ -1305,7 +1365,7 @@ async function uploadAndRender() {
       }
 
       if (renderStatus === "queued") {
-        setStatus(isLongFullTrack ? `${t("queued")}\n${t("longFullTrackNote")}` : t("queued"), "info");
+        setStatus(isLongFullTrack ? `${t("processing")}\n${t("longFullTrackNote")}` : t("processing"), "info");
       } else if (
         renderStatus === "processing"
       ) {
@@ -1332,20 +1392,27 @@ async function uploadAndRender() {
       } else if (renderStatus === "done") {
         lastKnownPercent = 100;
         const url = extractDownloadUrl(statusData, taskId);
-        if (!url) {
-          setStatus(t("badResponse"), "error");
-          return;
-        }
 
         console.debug("[render] render completed UI state entered", {
           taskId,
           downloadUrl: url,
+          deliveryStatus,
           payload: statusData,
         });
-        setStatus(
-          `${t("doneChat")}<br><br><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`,
-          "success"
-        );
+
+        if (deliveryStatus === "pending") {
+          setStatus(`${t("sendingTelegram")}${renderDownloadFallback(url)}`, "info");
+          continue;
+        }
+
+        if (deliveryStatus === "failed") {
+          const deliveryError = extractDeliveryError(statusData);
+          const deliveryErrorLine = deliveryError ? `<br><span class="hint">${escapeHtml(deliveryError)}</span>` : "";
+          setStatus(`${t("deliveryFailed")}${deliveryErrorLine}${renderDownloadFallback(url)}`, "success");
+          return;
+        }
+
+        setStatus(`${t("sentTelegram")}${renderDownloadFallback(url)}`, "success");
         return;
       }
     }
