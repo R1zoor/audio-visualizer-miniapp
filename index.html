@@ -381,6 +381,31 @@
       flex-direction: column;
     }
 
+    .delivery-info,
+    .custom-background-info {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .delivery-title,
+    .custom-background-title {
+      color: var(--text);
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .delivery-note-small {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(167, 176, 190, 0.86);
+    }
+
     .button {
       appearance: none;
       border: none;
@@ -438,6 +463,21 @@
     .status.error {
       border-color: rgba(255, 107, 107, 0.35);
       color: #ffd6d6;
+    }
+
+    .fallback-download {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
     }
 
     .footer-note {
@@ -509,6 +549,11 @@
         />
         <div class="hint" data-i18n="backgroundHint">
           Optional. If empty, default dark background will be used.
+        </div>
+
+        <div id="customBackgroundInfo" class="custom-background-info hidden">
+          <div class="custom-background-title" data-i18n="customBackgroundSelected">Custom background selected</div>
+          <div data-i18n="customBackgroundFill">Will fill the whole frame</div>
         </div>
 
         <div id="backgroundControls" class="inline-actions" style="display: none;">
@@ -646,6 +691,12 @@
       <div class="actions">
         <button id="renderButton" class="button button-primary" data-i18n="renderButton">Create Video</button>
         <button id="resetButton" class="button button-secondary" type="button" data-i18n="resetButton">Reset</button>
+      </div>
+
+      <div class="delivery-info">
+        <div class="delivery-title" data-i18n="deliveryTitle">Delivery: Telegram</div>
+        <div data-i18n="deliverySubtitle">Ready video will be sent to your Telegram chat</div>
+        <div class="delivery-note-small" data-i18n="deliveryLargeNote">Large videos may be sent as a download link</div>
       </div>
 
       <div id="statusBox" class="status"></div>

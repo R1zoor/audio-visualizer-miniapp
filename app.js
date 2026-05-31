@@ -42,6 +42,7 @@ const backgroundDimValue = document.getElementById("backgroundDimValue");
 const backgroundDimPreview = document.getElementById("backgroundDimPreview");
 const backgroundDimSummary = document.getElementById("backgroundDimSummary");
 const backgroundDimSummaryValue = document.getElementById("backgroundDimSummaryValue");
+const customBackgroundInfo = document.getElementById("customBackgroundInfo");
 
 const engineSelect = document.getElementById("engine");
 const styleField = document.getElementById("styleField");
@@ -226,6 +227,8 @@ const i18n = {
     fileHint: "MP3 and WAV are supported.",
     backgroundLabel: "Background image / GIF / video",
     backgroundHint: "Optional. If empty, default dark background will be used.",
+    customBackgroundSelected: "Custom background selected",
+    customBackgroundFill: "Will fill the whole frame",
     toggleDimButton: "Adjust dimming",
     backgroundDimLabel: "Background dim",
     backgroundDimHint: "0% = original background, 100% = fully black.",
@@ -254,24 +257,27 @@ const i18n = {
     summaryBackgroundDim: "Background dim",
     renderButton: "Create Video",
     resetButton: "Reset",
+    deliveryTitle: "Delivery: Telegram",
+    deliverySubtitle: "Ready video will be sent to your Telegram chat",
+    deliveryLargeNote: "Large videos may be sent as a download link",
     footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
-    uploading: "Uploading file...",
-    queued: "Task queued. Waiting for processing...",
+    uploading: "Uploading audio...",
+    queued: "Rendering video...",
     processing: "Rendering video...",
     readyTelegram: "Ready video will be sent to Telegram",
-    sendingTelegram: "Sending video to Telegram...",
-    sentTelegram: "Video sent to your Telegram chat",
+    sendingTelegram: "Sending to Telegram...",
+    sentTelegram: "Video sent to Telegram",
     deliveryFailed: "Video is ready, but Telegram delivery failed",
-    doneChat: "Video sent to your Telegram chat",
+    doneChat: "Video sent to Telegram",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
     invalidColor: "Invalid HEX color. Use format like #28c7e0.",
-    download: "Fallback download",
+    download: "Download MP4 instead",
     validationFailed: "Validation error.",
     requestTimeout: "Request timeout. Please try again.",
     statusUnavailable: "Status request failed.",
@@ -287,6 +293,8 @@ const i18n = {
     fileHint: "Поддерживаются MP3 и WAV.",
     backgroundLabel: "Фон: изображение / GIF / видео",
     backgroundHint: "Необязательно. Если не выбрать файл, будет использован тёмный фон по умолчанию.",
+    customBackgroundSelected: "Custom background selected",
+    customBackgroundFill: "Will fill the whole frame",
     toggleDimButton: "Настроить затемнение",
     backgroundDimLabel: "Затемнение фона",
     backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
@@ -315,24 +323,27 @@ const i18n = {
     summaryBackgroundDim: "Затемнение фона",
     renderButton: "Создать видео",
     resetButton: "Сбросить",
+    deliveryTitle: "Delivery: Telegram",
+    deliverySubtitle: "Ready video will be sent to your Telegram chat",
+    deliveryLargeNote: "Large videos may be sent as a download link",
     footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram-чат.",
     noFile: "Сначала выбери аудиофайл.",
     checkingApi: "Проверяю API...",
-    uploading: "Загружаю файл...",
-    queued: "Задача поставлена в очередь. Жду обработку...",
+    uploading: "Uploading audio...",
+    queued: "Rendering video...",
     processing: "Rendering video...",
     readyTelegram: "Ready video will be sent to Telegram",
-    sendingTelegram: "Sending video to Telegram...",
-    sentTelegram: "Video sent to your Telegram chat",
+    sendingTelegram: "Sending to Telegram...",
+    sentTelegram: "Video sent to Telegram",
     deliveryFailed: "Video is ready, but Telegram delivery failed",
-    doneChat: "Video sent to your Telegram chat",
+    doneChat: "Video sent to Telegram",
     failed: "Рендер завершился ошибкой",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не прошла.",
     resetDone: "Форма сброшена.",
     invalidColor: "Некорректный HEX-цвет. Используй формат вроде #28c7e0.",
-    download: "Fallback download",
+    download: "Download MP4 instead",
     validationFailed: "Ошибка валидации.",
     requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
     statusUnavailable: "Не удалось получить статус.",
@@ -634,6 +645,7 @@ function updateBackgroundDimUi() {
 
   if (backgroundControls) backgroundControls.style.display = hasBackground ? "flex" : "none";
   if (backgroundDimSummary) backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
+  if (customBackgroundInfo) customBackgroundInfo.classList.toggle("hidden", !hasBackground);
 
   if (!hasBackground) isDimPanelOpen = false;
   if (backgroundDimPanel) backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
@@ -1179,7 +1191,7 @@ function extractDownloadUrl(payload, taskId) {
 
 function renderDownloadFallback(url) {
   if (!url) return "";
-  return `<br><br><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`;
+  return `<br><a class="fallback-download" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("download")}</a>`;
 }
 
 function isTemporaryStatusError(value) {
@@ -1401,7 +1413,7 @@ async function uploadAndRender() {
         });
 
         if (deliveryStatus === "pending") {
-          setStatus(`${t("sendingTelegram")}${renderDownloadFallback(url)}`, "info");
+          setStatus(t("sendingTelegram"), "info");
           continue;
         }
 
@@ -1412,7 +1424,7 @@ async function uploadAndRender() {
           return;
         }
 
-        setStatus(`${t("sentTelegram")}${renderDownloadFallback(url)}`, "success");
+        setStatus(t("sentTelegram"), "success");
         return;
       }
     }
