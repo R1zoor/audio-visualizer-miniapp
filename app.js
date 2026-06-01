@@ -1,4 +1,4 @@
-const API_BASE = "https://estates-quite-threaded-tea.trycloudflare.com";
+const API_BASE = "https://appearing-finite-recovered-entrepreneur.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const FULL_MAX_DURATION_SECONDS = 360;
@@ -185,7 +185,7 @@ async function verifyFullModeAccess() {
 }
 
 function fullAccessRequiredMessage() {
-  return "Full mode requires render tokens. Please top up your balance or use Demo mode.";
+  return "Full render needs 1 token. Buy tokens in the bot or use Demo mode.";
 }
 
 function accessVerificationFailedMessage() {
@@ -258,7 +258,7 @@ const i18n = {
     renderButton: "Create Video",
     resetButton: "Reset",
     deliveryTitle: "Delivery: Telegram",
-    deliverySubtitle: "Ready video will be sent to your Telegram chat",
+    deliverySubtitle: "Your video will be sent to your Telegram chat",
     deliveryLargeNote: "Large videos may be sent as a download link",
     footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
@@ -267,10 +267,10 @@ const i18n = {
     queued: "Rendering video...",
     processing: "Rendering video...",
     finalizing: "Finalizing video...",
-    readyTelegram: "Ready video will be sent to Telegram",
+    readyTelegram: "Your video will be sent to Telegram",
     sendingTelegram: "Sending to Telegram...",
     sentTelegram: "Video sent to Telegram",
-    deliveryFailed: "Video is ready, but Telegram delivery failed",
+    deliveryFailed: "Your video is ready, but Telegram delivery failed",
     doneChat: "Video sent to Telegram",
     failed: "Render failed",
     networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
@@ -325,7 +325,7 @@ const i18n = {
     renderButton: "Создать видео",
     resetButton: "Сбросить",
     deliveryTitle: "Delivery: Telegram",
-    deliverySubtitle: "Ready video will be sent to your Telegram chat",
+    deliverySubtitle: "Your video will be sent to your Telegram chat",
     deliveryLargeNote: "Large videos may be sent as a download link",
     footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram-чат.",
     noFile: "Сначала выбери аудиофайл.",
@@ -334,10 +334,10 @@ const i18n = {
     queued: "Rendering video...",
     processing: "Rendering video...",
     finalizing: "Finalizing video...",
-    readyTelegram: "Ready video will be sent to Telegram",
+    readyTelegram: "Your video will be sent to Telegram",
     sendingTelegram: "Sending to Telegram...",
     sentTelegram: "Video sent to Telegram",
-    deliveryFailed: "Video is ready, but Telegram delivery failed",
+    deliveryFailed: "Your video is ready, but Telegram delivery failed",
     doneChat: "Video sent to Telegram",
     failed: "Рендер завершился ошибкой",
     networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
@@ -1433,9 +1433,7 @@ async function uploadAndRender() {
         }
 
         if (deliveryStatus === "failed") {
-          const deliveryError = extractDeliveryError(statusData);
-          const deliveryErrorLine = deliveryError ? `<br><span class="hint">${escapeHtml(deliveryError)}</span>` : "";
-          setStatus(`${t("deliveryFailed")}${deliveryErrorLine}${renderDownloadFallback(url)}`, "success");
+          setStatus(`${t("deliveryFailed")}${renderDownloadFallback(url)}`, "success");
           return;
         }
 
