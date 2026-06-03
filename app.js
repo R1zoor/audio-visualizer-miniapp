@@ -1,4 +1,4 @@
-const API_BASE = "https://appearing-finite-recovered-entrepreneur.trycloudflare.com";
+const API_BASE = "https://parliamentary-cluster-whilst-reach.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const FULL_MAX_DURATION_SECONDS = 360;
@@ -34,6 +34,7 @@ const AUTH_ERROR_CODES = new Set([
 /* DOM refs */
 const audioFileInput = document.getElementById("audioFile");
 const backgroundFileInput = document.getElementById("backgroundFile");
+const removeBackgroundButton = document.getElementById("removeBackgroundButton");
 const backgroundControls = document.getElementById("backgroundControls");
 const toggleDimButton = document.getElementById("toggleDimButton");
 const backgroundDimPanel = document.getElementById("backgroundDimPanel");
@@ -202,17 +203,26 @@ function accessAuthFailedMessage() {
 
 /* Presets */
 const milkPresets = [
-  { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Single glowing ring with soft pulse." },
+  { key: "neon_mandala", name: "Neon Mandala", family: "neon_mandala", desc: "Layered neon symmetry with premium motion." },
+  { key: "bass_tunnel", name: "Bass Tunnel", family: "bass_tunnel", desc: "Deep tunnel motion driven by bass." },
+  { key: "laser_fan", name: "Laser Fan", family: "laser_fan", desc: "Sharp beams for energetic tracks." },
+  { key: "plasma_orb", name: "Plasma Orb", family: "plasma_orb", desc: "Glowing plasma core with audio pulse." },
+  { key: "particle_fountain", name: "Particle Fountain", family: "particle_fountain", desc: "Rising neon particles and sparks." },
   { key: "double_ring", name: "Double Ring", family: "double_ring", desc: "Two layered circles with audio energy." },
-  { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
-  { key: "neon_mandala", name: "Neon Mandala", family: "neon_mandala", desc: "Symmetric neon mandala with layered motion." },
-  { key: "laser_fan", name: "Laser Fan", family: "laser_fan", desc: "Sharp fan beams reacting to audio peaks." },
-  { key: "bass_tunnel", name: "Bass Tunnel", family: "bass_tunnel", desc: "Tunnel-like depth and bass motion." },
-  { key: "plasma_orb", name: "Plasma Orb", family: "plasma_orb", desc: "Glowing plasma sphere with audio pulse." },
-  { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic horizon waveform." },
   { key: "spectrogram_plus", name: "Spectrogram Plus", family: "spectrogram_plus", desc: "Dense colorful spectral movement." },
-  { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Circular scope orbit with rotating feel." },
-  { key: "particle_fountain", name: "Particle Fountain", family: "particle_fountain", desc: "Rising particle fountain with neon sparks." },
+  { key: "orbital_scope", name: "Orbital Scope", family: "orbital_scope", desc: "Orbiting scope points with rotation." },
+  { key: "mandala_bloom", name: "Mandala Bloom", family: "mandala_bloom", desc: "Wider mandala bloom with denser petals." },
+  { key: "horizon_wave", name: "Horizon Wave", family: "horizon_wave", desc: "Wide cinematic waveform." },
+  { key: "radial_bars", name: "Radial Bars", family: "radial_bars", desc: "Circular bars around a bright core." },
+  { key: "particle_crown", name: "Particle Crown", family: "particle_crown", desc: "Wider particle crown with golden sparks." },
+  { key: "tunnel_depth", name: "Tunnel Depth", family: "tunnel_depth", desc: "Deeper tunnel rings with tighter motion." },
+  { key: "plasma_shell", name: "Plasma Shell", family: "plasma_shell", desc: "Large plasma shell with bright outer glow." },
+  { key: "ring_neon", name: "Ring Neon", family: "ring", desc: "Classic glowing ring with soft pulse." },
+  { key: "laser_burst", name: "Laser Burst", family: "laser_burst", desc: "Denser beam burst with harder impact." },
+  { key: "double_ring_echo", name: "Double Ring Echo", family: "double_ring_echo", desc: "Dense echo rings with finer radial detail." },
+  { key: "spectrum_wall", name: "Spectrum Wall", family: "spectrum_wall", desc: "Tall spectral wall with stronger columns." },
+  { key: "radial_burst", name: "Radial Burst", family: "radial_burst", desc: "High-density radial burst around the core." },
+  { key: "orbital_storm", name: "Orbital Storm", family: "orbital_storm", desc: "More orbit points and a storm-like ring." },
 ];
 
 /* i18n */
@@ -226,10 +236,11 @@ const i18n = {
     fileLabel: "Audio file",
     fileHint: "MP3 and WAV are supported.",
     backgroundLabel: "Background image / GIF / video",
-    backgroundHint: "Optional. If empty, default dark background will be used.",
+    backgroundHint: "Optional. Video/GIF backgrounds up to 150 MB. If empty, default dark background will be used.",
     customBackgroundSelected: "Custom background selected",
     customBackgroundFill: "Will fill the whole frame",
     toggleDimButton: "Adjust dimming",
+    removeBackgroundButton: "Remove background",
     backgroundDimLabel: "Background dim",
     backgroundDimHint: "0% = original background, 100% = fully black.",
     shuffleButton: "Shuffle",
@@ -249,7 +260,7 @@ const i18n = {
     summaryEngine: "Engine",
     summaryEngineDesc: "MILK only",
     summaryDemo: "Demo",
-    summaryDemoDesc: "Up to 30 seconds + watermark",
+    summaryDemoDesc: "Up to 60 seconds + watermark",
     summaryFull: "Full",
     summaryFullDesc: "Up to 6 minutes without watermark",
     fullDurationExceeded: "Full mode supports audio up to 6 minutes.",
@@ -293,10 +304,11 @@ const i18n = {
     fileLabel: "Аудиофайл",
     fileHint: "Поддерживаются MP3 и WAV.",
     backgroundLabel: "Фон: изображение / GIF / видео",
-    backgroundHint: "Необязательно. Если не выбрать файл, будет использован тёмный фон по умолчанию.",
+    backgroundHint: "Необязательно. Видео/GIF фон до 150 MB. Если не выбрать файл, будет использован тёмный фон по умолчанию.",
     customBackgroundSelected: "Custom background selected",
     customBackgroundFill: "Will fill the whole frame",
     toggleDimButton: "Настроить затемнение",
+    removeBackgroundButton: "Убрать фон",
     backgroundDimLabel: "Затемнение фона",
     backgroundDimHint: "0% = исходный фон, 100% = полностью чёрный.",
     shuffleButton: "Случайные",
@@ -316,7 +328,7 @@ const i18n = {
     summaryEngine: "Движок",
     summaryEngineDesc: "Только MILK",
     summaryDemo: "Demo",
-    summaryDemoDesc: "До 30 секунд + вотермарка",
+    summaryDemoDesc: "До 60 секунд + вотермарка",
     summaryFull: "Full",
     summaryFullDesc: "До 6 минут без вотермарки",
     fullDurationExceeded: "Full mode supports audio up to 6 minutes.",
@@ -646,11 +658,19 @@ function updateBackgroundDimUi() {
   if (backgroundDimSummaryValue) backgroundDimSummaryValue.textContent = `${dimValue}%`;
 
   if (backgroundControls) backgroundControls.style.display = hasBackground ? "flex" : "none";
+  if (removeBackgroundButton) removeBackgroundButton.disabled = !hasBackground;
   if (backgroundDimSummary) backgroundDimSummary.style.display = hasBackground ? "flex" : "none";
   if (customBackgroundInfo) customBackgroundInfo.classList.toggle("hidden", !hasBackground);
 
   if (!hasBackground) isDimPanelOpen = false;
   if (backgroundDimPanel) backgroundDimPanel.classList.toggle("show", hasBackground && isDimPanelOpen);
+}
+
+function clearSelectedBackground() {
+  if (backgroundFileInput) backgroundFileInput.value = "";
+  if (backgroundDimInput) backgroundDimInput.value = "35";
+  isDimPanelOpen = false;
+  updateBackgroundDimUi();
 }
 
 /* Colors */
@@ -889,74 +909,201 @@ function updateEngineUi() {
 }
 
 /* Preview rendering */
+function previewRgba(hex, alpha) {
+  const color = normalizeHexColor(hex, "#28c7e0").slice(1);
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const previewVariants = {
+  mandala_bloom: { base: "neon_mandala", density: 1.45, scale: 1.14, speed: 0.78, shape: "bloom" },
+  tunnel_depth: { base: "bass_tunnel", density: 1.55, scale: 1.12, speed: 0.68, shape: "deep" },
+  laser_burst: { base: "laser_fan", density: 1.75, scale: 1.16, speed: 1.35, shape: "burst" },
+  plasma_shell: { base: "plasma_orb", density: 1.18, scale: 1.30, speed: 0.76, shape: "shell" },
+  particle_crown: { base: "particle_fountain", density: 1.55, scale: 1.16, speed: 0.68, shape: "crown" },
+  double_ring_echo: { base: "double_ring", density: 1.65, scale: 1.08, speed: 0.86, shape: "echo" },
+  radial_burst: { base: "radial_bars", density: 1.65, scale: 1.10, speed: 1.15, shape: "burst" },
+  orbital_storm: { base: "orbital_scope", density: 1.85, scale: 1.10, speed: 1.28, shape: "storm" },
+  spectrum_wall: { base: "spectrogram_plus", density: 1.55, scale: 1.22, speed: 1.08, shape: "wall" },
+};
 function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
   ctx.clearRect(0, 0, width, height);
 
   const bg = ctx.createLinearGradient(0, 0, 0, height);
-  bg.addColorStop(0, "#071018");
-  bg.addColorStop(1, "#0e1823");
+  bg.addColorStop(0, "#050914");
+  bg.addColorStop(1, "#101622");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.globalAlpha = active ? 1 : 0.72;
-
   const cx = width / 2;
   const cy = height / 2;
-  const amp = active ? 1 : 0.8;
+  const shortSide = Math.min(width, height);
+  const variant = previewVariants[family] || {};
+  const previewFamily = variant.base || family;
+  const density = variant.density || 1;
+  const scale = variant.scale || 1;
+  const speed = variant.speed || 1;
+  const shape = variant.shape || "";
+  const amp = (active ? 1 : 0.82) * Math.min(scale, 1.18);
+  const motionT = tSec * speed;
+  const beat = (0.55 + 0.45 * Math.sin(motionT * 2.2)) * amp;
+  const pulse = (0.5 + 0.5 * Math.sin(motionT * 3.7)) * amp;
 
-  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.35);
-  glow.addColorStop(0, `${accent}33`);
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.36);
+  glow.addColorStop(0, previewRgba(accent, active ? 0.22 : 0.14));
   glow.addColorStop(1, "transparent");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
+  ctx.globalAlpha = active ? 1 : 0.76;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.lineWidth = active ? 3 : 2;
-  ctx.shadowBlur = active ? 14 : 8;
+  ctx.shadowBlur = active ? 14 : 9;
   ctx.shadowColor = primary;
   ctx.strokeStyle = primary;
   ctx.fillStyle = primary;
 
-  if (family === "ring") {
-    const r = 48 + Math.sin(tSec * 2.2) * 8 * amp;
+  if (previewFamily === "ring") {
+    const radius = shortSide * ((0.22 + beat * 0.018) * Math.min(scale, 1.10));
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.stroke();
-  } else if (family === "double_ring") {
-    const r1 = 36 + Math.sin(tSec * 2.1) * 6 * amp;
-    const r2 = 62 + Math.cos(tSec * 1.4) * 5 * amp;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r1, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = accent;
-    ctx.shadowColor = accent;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r2, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (family === "radial_bars") {
-    for (let i = 0; i < 48; i += 1) {
-      const a = (Math.PI * 2 * i) / 48;
-      const base = 34;
-      const extra = 10 + 20 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.5)) * amp;
-      const x1 = cx + Math.cos(a) * base;
-      const y1 = cy + Math.sin(a) * base;
-      const x2 = cx + Math.cos(a) * (base + extra);
-      const y2 = cy + Math.sin(a) * (base + extra);
+
+    for (let i = 0; i < Math.round(64 * density); i += 1) {
+      const a = (Math.PI * 2 * i) / Math.round(64 * density);
+      const energy = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(tSec * 2.8 + i * 0.32));
+      const inner = radius + 7;
+      const outer = inner + shortSide * (0.04 + energy * 0.10) * amp;
+      ctx.strokeStyle = i % 4 < 2 ? primary : accent;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+      ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+      ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
       ctx.stroke();
     }
-  } else if (family === "neon_mandala") {
+  } else if (previewFamily === "double_ring") {
+    (density > 1.2 ? [0.15, 0.24, 0.34] : [0.17, 0.29]).forEach((ratio, idx) => {
+      const r = shortSide * (ratio + Math.sin(tSec * (idx ? 1.4 : 2.1)) * 0.012 * amp);
+      ctx.strokeStyle = idx ? accent : primary;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    if (shape === "echo") {
+      const ticks = Math.round(48 * density);
+      for (let i = 0; i < ticks; i += 1) {
+        const a = motionT * 0.18 + (Math.PI * 2 * i) / ticks;
+        const inner = shortSide * 0.37;
+        const outer = inner + shortSide * (i % 3 === 0 ? 0.055 : 0.032);
+        ctx.strokeStyle = i % 2 ? previewRgba(accent, 0.82) : previewRgba(primary, 0.72);
+        ctx.shadowColor = i % 2 ? accent : primary;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+        ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+        ctx.stroke();
+      }
+    }
+  } else if (previewFamily === "radial_bars") {
+    const bars = Math.round(72 * density);
+    const base = shortSide * 0.16 * Math.min(scale, 1.08);
+    for (let i = 0; i < bars; i += 1) {
+      const a = (Math.PI * 2 * i) / bars;
+      const energy = 0.30 + 0.70 * (0.5 + 0.5 * Math.sin(tSec * 3.0 + i * 0.37));
+      const extra = shortSide * (0.08 + 0.18 * energy) * amp;
+      ctx.strokeStyle = i % 3 ? primary : accent;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * base, cy + Math.sin(a) * base);
+      ctx.lineTo(cx + Math.cos(a) * (base + extra), cy + Math.sin(a) * (base + extra));
+      ctx.stroke();
+    }
+  } else if (previewFamily === "scope_line") {
+    const yBase = cy + shortSide * 0.08;
+    ctx.beginPath();
+    for (let x = width * 0.08; x <= width * 0.92; x += 5) {
+      const n = (x - width * 0.08) / (width * 0.84);
+      const wave = Math.sin(n * Math.PI * 8 + tSec * 2.0) * 0.65 + Math.sin(n * Math.PI * 15 - tSec * 1.3) * 0.28;
+      const y = yBase + wave * shortSide * 0.14 * amp;
+      if (x <= width * 0.08) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = previewRgba(accent, 0.55);
+    ctx.beginPath();
+    ctx.moveTo(width * 0.08, yBase);
+    ctx.lineTo(width * 0.92, yBase);
+    ctx.stroke();
+  } else if (previewFamily === "mirror_wave") {
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.strokeStyle = side < 0 ? primary : accent;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.beginPath();
+      for (let x = width * 0.08; x <= width * 0.92; x += 5) {
+        const n = x / width;
+        const wave = Math.sin(n * Math.PI * 7 + tSec * 1.7) * 0.7 + Math.sin(n * Math.PI * 14 - tSec) * 0.25;
+        const y = cy + side * (shortSide * 0.12 + wave * shortSide * 0.11 * amp);
+        if (x <= width * 0.08) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  } else if (previewFamily === "center_bars") {
+    const bars = 21;
+    const spacing = width * 0.58 / bars;
+    for (let i = 0; i < bars; i += 1) {
+      const p = i / (bars - 1);
+      const wave = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(tSec * 2.4 + i * 0.45));
+      const h = shortSide * (0.06 + 0.23 * wave * amp);
+      const x = cx - spacing * bars / 2 + i * spacing;
+      ctx.fillStyle = p < 0.5 ? primary : accent;
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.fillRect(x, cy - h, Math.max(3, spacing * 0.55), h * 2);
+    }
+  } else if (previewFamily === "dark_tunnel") {
+    for (let i = 8; i >= 0; i -= 1) {
+      const depth = i / 8;
+      const r = shortSide * (0.06 + depth * 0.38 + beat * 0.01);
+      ctx.strokeStyle = i % 2 ? previewRgba(accent, 0.55 + depth * 0.35) : previewRgba(primary, 0.5 + depth * 0.35);
+      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (previewFamily === "pulse_core") {
+    const core = shortSide * (0.06 + pulse * 0.025);
+    for (let i = 4; i >= 0; i -= 1) {
+      ctx.fillStyle = previewRgba(i % 2 ? accent : primary, 0.08 + i * 0.055);
+      ctx.beginPath();
+      ctx.arc(cx, cy, core * (1 + i * 1.15), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = primary;
+    ctx.beginPath();
+    ctx.arc(cx, cy, core * 2.6, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 4; i += 1) {
+      const a = tSec * 0.65 + i * Math.PI / 2;
+      ctx.strokeStyle = i % 2 ? accent : primary;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * core * 3.2, cy + Math.sin(a) * core * 3.2);
+      ctx.lineTo(cx + Math.cos(a) * core * 5.0, cy + Math.sin(a) * core * 5.0);
+      ctx.stroke();
+    }
+  } else if (previewFamily === "neon_mandala") {
     for (let layer = 0; layer < 3; layer += 1) {
-      const points = 12 + layer * 6;
-      const radius = 28 + layer * 18 + Math.sin(tSec * 1.8 + layer) * 5 * amp;
+      const points = Math.round((10 + layer * 6) * density);
+      const base = shortSide * (0.14 + layer * 0.08) * Math.min(scale, 1.12);
       ctx.strokeStyle = layer % 2 ? accent : primary;
-      ctx.shadowColor = layer % 2 ? accent : primary;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
       for (let i = 0; i <= points; i += 1) {
-        const a = (Math.PI * 2 * i) / points + tSec * 0.35 * (layer + 1);
-        const r = radius + Math.sin(i * 2 + tSec * 2) * 8 * amp;
+        const a = (Math.PI * 2 * i) / points + motionT * 0.32 * (layer + 1);
+        const r = base + Math.sin(i * 2 + tSec * 2.2) * shortSide * 0.035 * amp;
         const x = cx + Math.cos(a) * r;
         const y = cy + Math.sin(a) * r;
         if (i === 0) ctx.moveTo(x, y);
@@ -965,101 +1112,166 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.closePath();
       ctx.stroke();
     }
-  } else if (family === "laser_fan") {
-    const beams = 18;
+    if (shape === "bloom") {
+      const petals = 18;
+      const petalR = shortSide * 0.40;
+      for (let i = 0; i < petals; i += 1) {
+        const a = motionT * 0.20 + (Math.PI * 2 * i) / petals;
+        const x = cx + Math.cos(a) * petalR;
+        const y = cy + Math.sin(a) * petalR;
+        ctx.fillStyle = i % 2 ? previewRgba(accent, 0.72) : previewRgba(primary, 0.62);
+        ctx.shadowColor = i % 2 ? accent : primary;
+        ctx.beginPath();
+        ctx.arc(x, y, shortSide * 0.015 * amp, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (previewFamily === "laser_fan") {
+    const originY = cy + shortSide * 0.20;
+    const beams = Math.round(26 * density);
     for (let i = 0; i < beams; i += 1) {
-      const a = -Math.PI * 0.85 + (Math.PI * 1.7 * i) / (beams - 1);
-      const len = 54 + 34 * (0.5 + 0.5 * Math.sin(tSec * 4 + i * 0.7)) * amp;
+      const a = -Math.PI * 0.90 + (Math.PI * 1.8 * i) / Math.max(1, beams - 1);
+      const energy = 0.42 + 0.58 * (0.5 + 0.5 * Math.sin(tSec * 4.2 + i * 0.61));
+      const len = shortSide * (0.24 + 0.32 * energy) * amp * Math.min(scale, 1.18);
       ctx.strokeStyle = i % 2 ? accent : primary;
-      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
-      ctx.moveTo(cx, cy + 44);
-      ctx.lineTo(cx + Math.cos(a) * len, cy + 44 + Math.sin(a) * len);
+      ctx.moveTo(cx, originY);
+      ctx.lineTo(cx + Math.cos(a) * len, originY + Math.sin(a) * len);
       ctx.stroke();
     }
-  } else if (family === "bass_tunnel") {
-    for (let i = 0; i < 6; i += 1) {
-      const r = 24 + i * 18 + Math.sin(tSec * 2.2 + i) * 4 * amp;
+  } else if (previewFamily === "bass_tunnel") {
+    for (let i = Math.round(7 * density); i >= 0; i -= 1) {
+      const depth = i / Math.max(1, Math.round(7 * density));
+      const r = shortSide * (0.10 + depth * 0.30 + beat * 0.018);
+      const twist = motionT * 0.35 + i * 0.22;
       ctx.strokeStyle = i % 2 ? accent : primary;
-      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      for (let p = 0; p <= 4; p += 1) {
+        const a = twist + Math.PI * 0.5 * p;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (p === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
       ctx.stroke();
     }
-  } else if (family === "plasma_orb") {
-    const r = 18 + Math.sin(tSec * 5) * 6 * amp;
-    const plasma = ctx.createRadialGradient(cx, cy, 0, cx, cy, r + 44);
-    plasma.addColorStop(0, primary);
-    plasma.addColorStop(0.45, `${accent}cc`);
+  } else if (previewFamily === "plasma_orb") {
+    const r = shortSide * (0.13 + pulse * 0.035) * Math.min(scale, 1.24);
+    const plasma = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.4);
+    plasma.addColorStop(0, previewRgba(primary, 0.95));
+    plasma.addColorStop(0.42, previewRgba(accent, 0.72));
     plasma.addColorStop(1, "transparent");
     ctx.fillStyle = plasma;
     ctx.beginPath();
-    ctx.arc(cx, cy, r + 34, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = accent;
     ctx.shadowColor = accent;
     ctx.beginPath();
-    ctx.arc(cx, cy, r + 26, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 1.55, 0, Math.PI * 2);
     ctx.stroke();
-  } else if (family === "horizon_wave") {
+    if (shape === "shell") {
+      ctx.strokeStyle = previewRgba(primary, 0.72);
+      ctx.shadowColor = primary;
+      [1.95, 2.35].forEach((ratio, idx) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * ratio, Math.PI * (0.12 + idx * 0.12), Math.PI * (1.88 - idx * 0.12));
+        ctx.stroke();
+      });
+    }
+  } else if (previewFamily === "horizon_wave") {
+    const yBase = cy + shortSide * 0.08;
     ctx.beginPath();
-    for (let x = 0; x < width; x += 4) {
-      const y = cy + Math.sin(x * 0.02 + tSec * 2) * 18 * amp;
+    for (let x = 0; x <= width; x += 4) {
+      const y = yBase + Math.sin(x * 0.025 + tSec * 2.0) * shortSide * 0.09 * amp;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = primary;
     ctx.lineTo(width, height);
     ctx.lineTo(0, height);
     ctx.closePath();
+    ctx.fillStyle = previewRgba(primary, 0.15);
     ctx.fill();
-  } else if (family === "spectrogram_plus") {
-    const cols = 40;
+  } else if (previewFamily === "spectrogram_plus") {
+    const cols = Math.round(56 * density);
     const colW = width / cols;
+    const wallBase = shape === "wall" ? height * 0.88 : cy;
     for (let i = 0; i < cols; i += 1) {
-      const h = 18 + 70 * (0.5 + 0.5 * Math.sin(tSec * 3 + i * 0.4)) * amp;
-      const grad = ctx.createLinearGradient(0, cy + h / 2, 0, cy - h / 2);
+      const energy = 0.22 + 0.78 * (0.5 + 0.5 * Math.sin(motionT * 3.2 + i * 0.42));
+      const h = shortSide * (0.10 + 0.36 * energy) * amp * Math.min(scale, 1.22);
+      const grad = ctx.createLinearGradient(0, wallBase, 0, wallBase - h);
       grad.addColorStop(0, accent);
       grad.addColorStop(1, primary);
       ctx.fillStyle = grad;
-      ctx.fillRect(i * colW + 1, cy - h / 2, Math.max(colW - 2, 3), h);
+      const y = shape === "wall" ? wallBase - h : cy - h / 2;
+      ctx.fillRect(i * colW + 1, y, Math.max(colW - 2, 3), h);
     }
-  } else if (family === "orbital_scope") {
-    const r = 42 + Math.sin(tSec * 2.4) * 6 * amp;
+  } else if (previewFamily === "orbital_scope") {
+    const r = shortSide * (0.21 + beat * 0.012) * Math.min(scale, 1.12);
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
-
-    for (let i = 0; i < 3; i += 1) {
-      const a = tSec * 1.4 + i * 2;
-      const x = cx + Math.cos(a) * r;
-      const y = cy + Math.sin(a) * r;
+    for (let i = 0; i < Math.round(16 * density); i += 1) {
+      const a = motionT * 0.9 + (Math.PI * 2 * i) / Math.round(16 * density);
+      const orbit = r * (1.25 + 0.18 * Math.sin(tSec * 0.8 + i));
+      const size = 3 + pulse * 3;
+      ctx.fillStyle = i % 2 ? accent : primary;
       ctx.beginPath();
-      ctx.arc(x, y, 4 + i, 0, Math.PI * 2);
+      ctx.arc(cx + Math.cos(a) * orbit, cy + Math.sin(a) * orbit, size, 0, Math.PI * 2);
       ctx.fill();
     }
-  } else if (family === "particle_fountain") {
-    for (let i = 0; i < 72; i += 1) {
-      const phase = (i * 0.137 + tSec * 0.7) % 1;
-      const spread = (i % 18) - 8.5;
-      const x = cx + spread * 8 + Math.sin(tSec * 2 + i) * 6;
-      const y = height - 22 - phase * 145;
-      const size = 2 + 3 * (1 - phase) * amp;
+    if (shape === "storm") {
+      for (let i = 0; i < 9; i += 1) {
+        const a = -motionT * 0.55 + (Math.PI * 2 * i) / 9;
+        ctx.strokeStyle = i % 2 ? previewRgba(accent, 0.68) : previewRgba(primary, 0.58);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * (0.48 + i * 0.055), a, a + Math.PI * 0.82);
+        ctx.stroke();
+      }
+    }
+  } else if (previewFamily === "spiral_beam") {
+    const arms = 4;
+    for (let arm = 0; arm < arms; arm += 1) {
+      for (let step = 0; step < 18; step += 1) {
+        const frac = step / 17;
+        const a = tSec * 0.75 + arm * Math.PI * 2 / arms + frac * Math.PI * 2.6;
+        const r = shortSide * frac * (0.08 + 0.34 * amp);
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        const size = Math.max(2, (1 - frac) * 6);
+        ctx.fillStyle = arm % 2 ? accent : primary;
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (previewFamily === "particle_fountain") {
+    const baseY = shape === "crown" ? height * 0.66 : height * 0.78;
+    for (let i = 0; i < Math.round(78 * density); i += 1) {
+      const phase = (i * 0.137 + motionT * 0.10) % 1;
+      const spread = ((i % 18) - 8.5) / 8.5;
+      const x = cx + spread * width * 0.28 * Math.min(scale, 1.18) + Math.sin(motionT * 1.6 + i) * shortSide * 0.025;
+      const y = baseY - phase * height * 0.62 * Math.min(scale, 1.15);
+      const size = 2 + 4 * (1 - phase) * amp;
       ctx.fillStyle = i % 2 ? accent : primary;
-      ctx.shadowColor = i % 2 ? accent : primary;
+      ctx.shadowColor = ctx.fillStyle;
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.strokeStyle = accent;
+    ctx.beginPath();
+    ctx.arc(cx, baseY, shortSide * (0.13 + beat * 0.015), Math.PI * 1.05, Math.PI * 1.95);
+    ctx.stroke();
   }
 
   ctx.restore();
   ctx.globalAlpha = 1;
 }
-
 function restartPreviewLoop() {
   if (previewAnimationId) {
     cancelAnimationFrame(previewAnimationId);
@@ -1452,9 +1664,7 @@ async function uploadAndRender() {
 /* Reset */
 function resetForm() {
   audioFileInput.value = "";
-  backgroundFileInput.value = "";
-  backgroundDimInput.value = "35";
-  isDimPanelOpen = false;
+  clearSelectedBackground();
 
   if (engineSelect) engineSelect.value = "milk";
   if (styleField) styleField.style.display = "none";
@@ -1486,6 +1696,8 @@ langToggle?.addEventListener("click", () => {
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
+
+removeBackgroundButton?.addEventListener("click", clearSelectedBackground);
 
 backgroundFileInput.addEventListener("change", () => {
   if (!backgroundFileInput.files?.[0]) {
