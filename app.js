@@ -67,6 +67,8 @@ const langToggle = document.getElementById("langToggle");
 const customTextField = document.getElementById("customTextField");
 const customTextInput = document.getElementById("customTextInput");
 const tokensBadge = document.getElementById("tokensBadge");
+const renderHistoryList = document.getElementById("renderHistoryList");
+const historyRefreshButton = document.getElementById("historyRefreshButton");
 
 /* State */
 let currentLang = "ru";
@@ -74,6 +76,7 @@ let isDimPanelOpen = false;
 let visibleMilkPresets = [];
 let previewAnimationId = null;
 let currentTokenBalance = null;
+let recentRenderHistory = [];
 
 function updateTokensBadge(value) {
   currentTokenBalance = Number.isFinite(Number(value)) ? Number(value) : null;
@@ -294,6 +297,20 @@ const i18n = {
     requestTimeout: "Request timeout. Please try again.",
     statusUnavailable: "Status request failed.",
     progress: "Progress",
+    queuePosition: "Queue position",
+    queueEta: "Approx. wait",
+    queueWaiting: "Waiting for an available render worker",
+    queueNext: "Next in line",
+    historyTitle: "Recent renders",
+    historyRefresh: "Refresh",
+    historyLoading: "Loading recent renders...",
+    historyEmpty: "No recent renders yet.",
+    historyUnavailable: "Render history is unavailable.",
+    reuseSettings: "Reuse settings",
+    settingsReused: "Settings reused. Upload audio and create a new video.",
+    chooseBackgroundAgain: "Previous background file is not reused. Choose a background again if needed.",
+    backgroundCustom: "custom background",
+    backgroundDefault: "default background",
   },
   ru: {
     badge: "● MP3/WAV → MP4 visualizer",
@@ -361,6 +378,21 @@ const i18n = {
     validationFailed: "Ошибка валидации.",
     requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
     statusUnavailable: "Не удалось получить статус.",
+    progress: "Прогресс",
+    queuePosition: "Позиция в очереди",
+    queueEta: "Примерно ждать",
+    queueWaiting: "Ожидаем свободный render worker",
+    queueNext: "Следующий в очереди",
+    historyTitle: "Последние рендеры",
+    historyRefresh: "Обновить",
+    historyLoading: "Загружаю историю...",
+    historyEmpty: "Пока нет рендеров.",
+    historyUnavailable: "История рендеров недоступна.",
+    reuseSettings: "Повторить настройки",
+    settingsReused: "Настройки подставлены. Загрузи аудио и создай новое видео.",
+    chooseBackgroundAgain: "Старый файл фона не переиспользуется. Выбери фон заново, если нужно.",
+    backgroundCustom: "кастомный фон",
+    backgroundDefault: "фон по умолчанию",
   },
 };
 
@@ -600,6 +632,7 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
     lastAuthCheckResult = result;
     setAccessUiState(ACCESS_UI_STATES.FULL_VERIFIED);
     if (renderStatus) hideStatus();
+    loadRenderHistory({ silent: true });
     return result;
   }
 
@@ -908,6 +941,113 @@ function updateEngineUi() {
   restartPreviewLoop();
 }
 
+/* Render history */
+function presetDisplayName(key) {
+  return milkPresets.find((preset) => preset.key === key)?.name || key || "Preset";
+}
+
+function formatHistoryDate(value) {
+  if (!value) return "";
+  const normalized = String(value).replace(" ", "T");
+  const date = new Date(normalized.endsWith("Z") ? normalized : `${normalized}Z`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(currentLang === "ru" ? "ru-RU" : "en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ensurePresetVisible(presetKey) {
+  const preset = milkPresets.find((item) => item.key === presetKey);
+  if (!preset) return;
+  if (!visibleMilkPresets.find((item) => item.key === presetKey)) {
+    visibleMilkPresets = [preset, ...visibleMilkPresets].slice(0, Math.max(6, visibleMilkPresets.length || 6));
+  }
+  renderMilkPresets(visibleMilkPresets);
+}
+
+function renderHistory(items) {
+  if (!renderHistoryList) return;
+  recentRenderHistory = Array.isArray(items) ? items : [];
+
+  if (!recentRenderHistory.length) {
+    renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyEmpty"))}</div>`;
+    return;
+  }
+
+  renderHistoryList.innerHTML = recentRenderHistory.map((item, index) => {
+    const preset = item.preset || item.style || item.reuse_settings?.milk_preset || "neon_mandala";
+    const mode = String(item.mode || "demo").toUpperCase();
+    const status = String(item.render_status || item.status || "queued");
+    const orientation = item.orientation || item.reuse_settings?.orientation || "portrait";
+    const backgroundLabel = item.background_mode === "custom" ? t("backgroundCustom") : t("backgroundDefault");
+    const canReuse = item.can_reuse_settings !== false;
+    const date = formatHistoryDate(item.created_at);
+    return `
+      <div class="history-item">
+        <div class="history-main">
+          <div>
+            <div class="history-preset">${escapeHtml(presetDisplayName(preset))}</div>
+            <div class="history-meta">${escapeHtml(mode)} · ${escapeHtml(status)} · ${escapeHtml(orientation)}</div>
+            <div class="history-note">${escapeHtml([date, backgroundLabel].filter(Boolean).join(" · "))}</div>
+          </div>
+        </div>
+        ${canReuse ? `<div class="history-actions"><button class="ghost-button" type="button" data-history-index="${index}">${escapeHtml(t("reuseSettings"))}</button></div>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
+async function loadRenderHistory({ silent = false } = {}) {
+  if (!renderHistoryList) return;
+  if (!miniappSessionToken) {
+    renderHistory([]);
+    return;
+  }
+  if (!silent) {
+    renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyLoading"))}</div>`;
+  }
+
+  try {
+    const { response, payload } = await fetchJson(
+      `${API_BASE}/renders/history?limit=10`,
+      { method: "GET", headers: buildSessionAuthHeaders() },
+      20000
+    );
+    if (!response.ok) {
+      if (!silent) renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyUnavailable"))}</div>`;
+      return;
+    }
+    renderHistory(Array.isArray(payload) ? payload : []);
+  } catch (_) {
+    if (!silent) renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyUnavailable"))}</div>`;
+  }
+}
+
+function applyHistorySettings(item) {
+  const settings = item?.reuse_settings || {};
+  const preset = settings.milk_preset || settings.style || item?.preset || "neon_mandala";
+
+  milkPresetInput.value = preset;
+  ensurePresetVisible(preset);
+  clearSelectedBackground();
+
+  if (modeSelect && settings.mode) modeSelect.value = settings.mode;
+  if (orientationSelect && settings.orientation) orientationSelect.value = settings.orientation;
+  if (backgroundDimInput && settings.background_dim !== undefined) backgroundDimInput.value = String(settings.background_dim);
+  if (customTextInput) customTextInput.value = settings.custom_text || "";
+  if (settings.visualizer_color) updateColorControlAppearance(visualizerColorInput, visualizerColorText, settings.visualizer_color);
+  if (settings.accent_color) updateColorControlAppearance(accentColorInput, accentColorText, settings.accent_color);
+
+  updateCustomTextVisibility();
+  updateBackgroundDimUi();
+  restartPreviewLoop();
+
+  const backgroundNote = item?.background_mode === "custom" ? `\n${t("chooseBackgroundAgain")}` : "";
+  setStatus(`${t("settingsReused")}${backgroundNote}`, "info");
+}
 /* Preview rendering */
 function previewRgba(hex, alpha) {
   const color = normalizeHexColor(hex, "#28c7e0").slice(1);
@@ -925,7 +1065,7 @@ const previewVariants = {
   particle_crown: { base: "particle_fountain", density: 1.55, scale: 1.16, speed: 0.68, shape: "crown" },
   double_ring_echo: { base: "double_ring", density: 1.65, scale: 1.08, speed: 0.86, shape: "echo" },
   radial_burst: { base: "radial_bars", density: 1.65, scale: 1.10, speed: 1.15, shape: "burst" },
-  orbital_storm: { base: "orbital_scope", density: 1.85, scale: 1.10, speed: 1.28, shape: "storm" },
+  orbital_storm: { base: "orbital_scope", density: 1.85, scale: 1.10, speed: 1.28, shape: "dense_orbit" },
   spectrum_wall: { base: "spectrogram_plus", density: 1.55, scale: 1.22, speed: 1.08, shape: "wall" },
 };
 function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
@@ -994,6 +1134,19 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
     });
+    const ringTicks = Math.round(64 * density);
+    const tickBase = shortSide * (density > 1.2 ? 0.35 : 0.31);
+    for (let i = 0; i < ringTicks; i += 1) {
+      const a = (Math.PI * 2 * i) / ringTicks;
+      const energy = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(motionT * 2.4 + i * 0.24));
+      const outer = tickBase + shortSide * (0.035 + energy * 0.08) * amp;
+      ctx.strokeStyle = i % 3 ? primary : accent;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * tickBase, cy + Math.sin(a) * tickBase);
+      ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+      ctx.stroke();
+    }
     if (shape === "echo") {
       const ticks = Math.round(48 * density);
       for (let i = 0; i < ticks; i += 1) {
@@ -1127,7 +1280,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       }
     }
   } else if (previewFamily === "laser_fan") {
-    const originY = cy + shortSide * 0.20;
+    const originY = height * 0.88;
     const beams = Math.round(26 * density);
     for (let i = 0; i < beams; i += 1) {
       const a = -Math.PI * 0.90 + (Math.PI * 1.8 * i) / Math.max(1, beams - 1);
@@ -1141,20 +1294,30 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.stroke();
     }
   } else if (previewFamily === "bass_tunnel") {
-    for (let i = Math.round(7 * density); i >= 0; i -= 1) {
-      const depth = i / Math.max(1, Math.round(7 * density));
-      const r = shortSide * (0.10 + depth * 0.30 + beat * 0.018);
-      const twist = motionT * 0.35 + i * 0.22;
-      ctx.strokeStyle = i % 2 ? accent : primary;
+    const rings = Math.round(8 * density);
+    for (let i = rings; i >= 0; i -= 1) {
+      const depth = i / Math.max(1, rings);
+      const r = shortSide * (0.07 + depth * 0.36 + beat * 0.012);
+      const twist = motionT * 0.45 + i * 0.36;
+      ctx.strokeStyle = i % 2 ? previewRgba(accent, 0.42 + depth * 0.42) : previewRgba(primary, 0.46 + depth * 0.38);
+      ctx.shadowColor = i % 2 ? accent : primary;
+      for (let arc = 0; arc < 5; arc += 1) {
+        const start = twist + arc * Math.PI * 0.40;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, start, start + Math.PI * (0.16 + depth * 0.10));
+        ctx.stroke();
+      }
+    }
+    const lanes = Math.round(26 * density);
+    for (let i = 0; i < lanes; i += 1) {
+      const a = motionT * 0.30 + (Math.PI * 2 * i) / lanes;
+      const inner = shortSide * 0.08;
+      const outer = shortSide * (0.32 + 0.18 * (0.5 + 0.5 * Math.sin(motionT * 1.6 + i)));
+      ctx.strokeStyle = i % 2 ? primary : accent;
       ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
-      for (let p = 0; p <= 4; p += 1) {
-        const a = twist + Math.PI * 0.5 * p;
-        const x = cx + Math.cos(a) * r;
-        const y = cy + Math.sin(a) * r;
-        if (p === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
+      ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+      ctx.lineTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
       ctx.stroke();
     }
   } else if (previewFamily === "plasma_orb") {
@@ -1198,7 +1361,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
   } else if (previewFamily === "spectrogram_plus") {
     const cols = Math.round(56 * density);
     const colW = width / cols;
-    const wallBase = shape === "wall" ? height * 0.88 : cy;
+    const wallBase = height * 0.92;
     for (let i = 0; i < cols; i += 1) {
       const energy = 0.22 + 0.78 * (0.5 + 0.5 * Math.sin(motionT * 3.2 + i * 0.42));
       const h = shortSide * (0.10 + 0.36 * energy) * amp * Math.min(scale, 1.22);
@@ -1206,7 +1369,7 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       grad.addColorStop(0, accent);
       grad.addColorStop(1, primary);
       ctx.fillStyle = grad;
-      const y = shape === "wall" ? wallBase - h : cy - h / 2;
+      const y = wallBase - h;
       ctx.fillRect(i * colW + 1, y, Math.max(colW - 2, 3), h);
     }
   } else if (previewFamily === "orbital_scope") {
@@ -1223,14 +1386,12 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       ctx.arc(cx + Math.cos(a) * orbit, cy + Math.sin(a) * orbit, size, 0, Math.PI * 2);
       ctx.fill();
     }
-    if (shape === "storm") {
-      for (let i = 0; i < 9; i += 1) {
-        const a = -motionT * 0.55 + (Math.PI * 2 * i) / 9;
-        ctx.strokeStyle = i % 2 ? previewRgba(accent, 0.68) : previewRgba(primary, 0.58);
-        ctx.beginPath();
-        ctx.arc(cx, cy, r * (0.48 + i * 0.055), a, a + Math.PI * 0.82);
-        ctx.stroke();
-      }
+    for (let i = 0; i < 5; i += 1) {
+      const a = motionT * 0.35 + i * 0.66;
+      ctx.strokeStyle = previewRgba(accent, 0.52);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * (1.14 + i * 0.02), a, a + Math.PI * 0.26);
+      ctx.stroke();
     }
   } else if (previewFamily === "spiral_beam") {
     const arms = 4;
@@ -1250,7 +1411,24 @@ function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, act
       }
     }
   } else if (previewFamily === "particle_fountain") {
-    const baseY = shape === "crown" ? height * 0.66 : height * 0.78;
+    const baseY = height * 0.66;
+    const ribbons = shape === "crown" ? 7 : 5;
+    for (let ribbon = 0; ribbon < ribbons; ribbon += 1) {
+      const side = ribbon - (ribbons - 1) / 2;
+      const sideNorm = side / Math.max(1, (ribbons - 1) / 2);
+      ctx.strokeStyle = ribbon % 2 ? previewRgba(accent, 0.70) : previewRgba(primary, 0.66);
+      ctx.shadowColor = ribbon % 2 ? accent : primary;
+      ctx.beginPath();
+      for (let step = 0; step <= 18; step += 1) {
+        const q = step / 18;
+        const bend = Math.sin(q * Math.PI + motionT * 0.7 + ribbon * 0.9);
+        const x = cx + sideNorm * width * (0.06 + Math.sin(q * Math.PI) * 0.22) + bend * width * 0.018;
+        const y = baseY - q * height * (0.24 + 0.05 * Math.abs(sideNorm));
+        if (step === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
     for (let i = 0; i < Math.round(78 * density); i += 1) {
       const phase = (i * 0.137 + motionT * 0.10) % 1;
       const spread = ((i % 18) - 8.5) / 8.5;
@@ -1369,6 +1547,46 @@ function extractRenderStage(payload) {
       payload?.result?.render_stage ??
       ""
   ).trim().toLowerCase();
+}
+
+function formatApproxEta(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  const minutes = Math.max(1, Math.round(value / 60));
+  if (minutes < 60) return `~${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `~${hours}h ${rest}m` : `~${hours}h`;
+}
+
+function extractQueueInfo(payload) {
+  const rawPosition = payload?.queue_position ?? payload?.result?.queue_position;
+  const rawAhead = payload?.queue_size_ahead ?? payload?.result?.queue_size_ahead;
+  const rawEta = payload?.eta_seconds ?? payload?.result?.eta_seconds;
+  const position = rawPosition === null || rawPosition === undefined ? null : Number(rawPosition);
+  const ahead = rawAhead === null || rawAhead === undefined ? null : Number(rawAhead);
+  const eta = rawEta === null || rawEta === undefined ? null : Number(rawEta);
+  return {
+    queueName: payload?.queue_name ?? payload?.result?.queue_name ?? "",
+    position: Number.isFinite(position) ? position : null,
+    ahead: Number.isFinite(ahead) ? ahead : null,
+    etaSeconds: Number.isFinite(eta) ? eta : null,
+    note: payload?.queue_note ?? payload?.status_hint ?? payload?.result?.queue_note ?? "",
+  };
+}
+
+function renderQueueHint(queueInfo) {
+  if (!queueInfo) return "";
+  const lines = [];
+  if (queueInfo.position !== null && queueInfo.position > 0) {
+    lines.push(`${t("queuePosition")}: ${queueInfo.position}`);
+  } else if (queueInfo.position === 0) {
+    lines.push(t("queueNext"));
+  }
+  const etaText = formatApproxEta(queueInfo.etaSeconds);
+  if (etaText) lines.push(`${t("queueEta")}: ${etaText}`);
+  if (queueInfo.note) lines.push(queueInfo.note);
+  return lines.map((line) => escapeHtml(line)).join("\n");
 }
 
 function normalizeDeliveryStatus(value) {
@@ -1593,6 +1811,8 @@ async function uploadAndRender() {
       const deliveryStatus = extractDeliveryStatus(statusData);
       const renderStage = extractRenderStage(statusData);
       const receivedProgress = extractRenderProgress(statusData);
+      const queueInfo = extractQueueInfo(statusData);
+      const queueHint = renderQueueHint(queueInfo);
       console.debug("[render] received status=", renderStatus);
       console.debug("[render] received stage=", renderStage || "none");
       console.debug("[render] received delivery=", deliveryStatus || "none");
@@ -1603,13 +1823,19 @@ async function uploadAndRender() {
       }
 
       if (renderStatus === "queued") {
-        setStatus(isLongFullTrack ? `${t("processing")}\n${t("longFullTrackNote")}` : t("processing"), "info");
+        const base = queueHint ? `${t("queued")}\n${queueHint}` : t("queueWaiting");
+        setStatus(isLongFullTrack ? `${base}\n${t("longFullTrackNote")}` : base, "info");
       } else if (
         renderStatus === "processing"
       ) {
         const percent = lastKnownPercent;
-        const stageText = renderStage === "finalizing" ? t("finalizing") : t("processing");
-        setStatus(`${stageText}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`, "info");
+        const stageText = renderStage === "finalizing"
+          ? t("finalizing")
+          : renderStage === "sending_to_telegram"
+            ? t("sendingTelegram")
+            : t("processing");
+        const progressText = `${stageText}${Number.isFinite(percent) ? ` — ${percent}%` : ""}`;
+        setStatus(queueHint ? `${progressText}\n${queueHint}` : progressText, "info");
       } else if (renderStatus === "failed") {
         const errorText = extractErrorMessage(
           {
@@ -1646,10 +1872,12 @@ async function uploadAndRender() {
 
         if (deliveryStatus === "failed") {
           setStatus(`${t("deliveryFailed")}${renderDownloadFallback(url)}`, "success");
+          loadRenderHistory({ silent: true });
           return;
         }
 
         setStatus(t("sentTelegram"), "success");
+        loadRenderHistory({ silent: true });
         return;
       }
     }
@@ -1693,6 +1921,7 @@ langToggle?.addEventListener("click", () => {
   currentLang = currentLang === "en" ? "ru" : "en";
   applyTranslations();
   renderMilkPresets(visibleMilkPresets);
+  renderHistory(recentRenderHistory);
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
@@ -1721,6 +1950,14 @@ bindColorPair(accentColorInput, accentColorText, "#7c4dff");
 
 renderButton?.addEventListener("click", uploadAndRender);
 resetButton?.addEventListener("click", resetForm);
+historyRefreshButton?.addEventListener("click", () => loadRenderHistory());
+renderHistoryList?.addEventListener("click", (event) => {
+  const button = event.target?.closest?.("[data-history-index]");
+  if (!button) return;
+  const index = Number(button.dataset.historyIndex);
+  if (!Number.isInteger(index)) return;
+  applyHistorySettings(recentRenderHistory[index]);
+});
 
 /* Initial */
 orientationSelect.value = "portrait";
@@ -1733,3 +1970,4 @@ refreshMilkRandom();
 updateEngineUi();
 updateCustomTextVisibility();
 updateBackgroundDimUi();
+loadRenderHistory();

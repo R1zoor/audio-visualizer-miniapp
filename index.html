@@ -479,6 +479,64 @@
       font-weight: 700;
       text-decoration: none;
     }
+    .history-panel {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .history-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .history-item {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .history-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .history-preset {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .history-meta,
+    .history-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .history-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
 
     .footer-note {
       margin-top: 18px;
@@ -703,6 +761,16 @@
       </div>
 
       <div id="statusBox" class="status"></div>
+
+      <div class="history-panel">
+        <div class="history-header">
+          <div class="history-title" data-i18n="historyTitle">Recent renders</div>
+          <button id="historyRefreshButton" class="ghost-button" type="button" data-i18n="historyRefresh">Refresh</button>
+        </div>
+        <div id="renderHistoryList" class="history-list">
+          <div class="history-note" data-i18n="historyLoading">Loading recent renders...</div>
+        </div>
+      </div>
 
       <div class="footer-note" data-i18n="footerNote">
         Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.
