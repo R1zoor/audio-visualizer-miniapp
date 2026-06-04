@@ -1,4 +1,4 @@
-const API_BASE = "https://parliamentary-cluster-whilst-reach.trycloudflare.com";
+const API_BASE = "https://facing-proteins-pump-permitted.trycloudflare.com";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const FULL_MAX_DURATION_SECONDS = 360;
@@ -77,6 +77,8 @@ let visibleMilkPresets = [];
 let previewAnimationId = null;
 let currentTokenBalance = null;
 let recentRenderHistory = [];
+let favoritePresetKeys = new Set();
+let pendingFavoriteToggles = new Set();
 
 function updateTokensBadge(value) {
   currentTokenBalance = Number.isFinite(Number(value)) ? Number(value) : null;
@@ -304,8 +306,19 @@ const i18n = {
     historyTitle: "Recent renders",
     historyRefresh: "Refresh",
     historyLoading: "Loading recent renders...",
-    historyEmpty: "No recent renders yet.",
-    historyUnavailable: "Render history is unavailable.",
+    historyEmpty: "No renders yet. Create your first visualizer and it will appear here.",
+    historyUnavailable: "Could not load recent renders. Please try again.",
+    historyCreated: "Created",
+    historyUpdated: "Updated",
+    statusQueued: "Queued",
+    statusRendering: "Rendering",
+    statusFinalizing: "Finalizing",
+    statusSending: "Sending",
+    statusDone: "Done",
+    statusFailed: "Failed",
+    statusDeliveryFailed: "Delivery failed",
+    favoritePreset: "Add to favorites",
+    unfavoritePreset: "Remove from favorites",
     reuseSettings: "Reuse settings",
     settingsReused: "Settings reused. Upload audio and create a new video.",
     chooseBackgroundAgain: "Previous background file is not reused. Choose a background again if needed.",
@@ -386,8 +399,19 @@ const i18n = {
     historyTitle: "Последние рендеры",
     historyRefresh: "Обновить",
     historyLoading: "Загружаю историю...",
-    historyEmpty: "Пока нет рендеров.",
-    historyUnavailable: "История рендеров недоступна.",
+    historyEmpty: "Пока нет рендеров. Создай первый визуализатор, и он появится здесь.",
+    historyUnavailable: "Не удалось загрузить историю. Попробуй ещё раз.",
+    historyCreated: "Создан",
+    historyUpdated: "Обновлён",
+    statusQueued: "В очереди",
+    statusRendering: "Рендерится",
+    statusFinalizing: "Финализация",
+    statusSending: "Отправляется",
+    statusDone: "Готово",
+    statusFailed: "Ошибка",
+    statusDeliveryFailed: "Доставка не удалась",
+    favoritePreset: "Добавить в избранное",
+    unfavoritePreset: "Убрать из избранного",
     reuseSettings: "Повторить настройки",
     settingsReused: "Настройки подставлены. Загрузи аудио и создай новое видео.",
     chooseBackgroundAgain: "Старый файл фона не переиспользуется. Выбери фон заново, если нужно.",
@@ -633,6 +657,7 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
     setAccessUiState(ACCESS_UI_STATES.FULL_VERIFIED);
     if (renderStatus) hideStatus();
     loadRenderHistory({ silent: true });
+    loadPresetFavorites({ silent: true });
     return result;
   }
 
@@ -868,40 +893,133 @@ function getAudioDurationSeconds(file) {
   });
 }
 
+function sortPresetsFavoritesFirst(list) {
+  const items = Array.isArray(list) ? list : [];
+  return items.slice().sort((a, b) => {
+    const aFav = favoritePresetKeys.has(a.key) ? 0 : 1;
+    const bFav = favoritePresetKeys.has(b.key) ? 0 : 1;
+    if (aFav !== bFav) return aFav - bFav;
+    return milkPresets.findIndex((preset) => preset.key === a.key) - milkPresets.findIndex((preset) => preset.key === b.key);
+  });
+}
+
+function favoritePresetsInCatalogOrder() {
+  return milkPresets.filter((preset) => favoritePresetKeys.has(preset.key));
+}
+
+function buildDefaultVisiblePresets() {
+  const favorites = favoritePresetsInCatalogOrder();
+  const favoriteKeys = new Set(favorites.map((preset) => preset.key));
+  const randomRest = shuffleArray(milkPresets.filter((preset) => !favoriteKeys.has(preset.key)));
+  return [...favorites, ...randomRest].slice(0, Math.max(6, favorites.length));
+}
+
+async function loadPresetFavorites({ silent = true } = {}) {
+  if (!miniappSessionToken) {
+    favoritePresetKeys = new Set();
+    renderMilkPresets(visibleMilkPresets);
+    return;
+  }
+
+  try {
+    const { response, payload } = await fetchJson(
+      `${API_BASE}/presets/favorites`,
+      { method: "GET", headers: buildSessionAuthHeaders() },
+      15000
+    );
+    if (!response.ok || !Array.isArray(payload?.items)) {
+      if (!silent) console.warn("Preset favorites unavailable", response.status);
+      return;
+    }
+    favoritePresetKeys = new Set(payload.items.filter((key) => milkPresets.some((preset) => preset.key === key)));
+    visibleMilkPresets = sortPresetsFavoritesFirst(visibleMilkPresets);
+    renderMilkPresets(visibleMilkPresets);
+  } catch (error) {
+    if (!silent) console.warn("Preset favorites unavailable", error);
+  }
+}
+
+async function togglePresetFavorite(presetKey, button) {
+  if (!miniappSessionToken || pendingFavoriteToggles.has(presetKey)) return;
+  pendingFavoriteToggles.add(presetKey);
+  if (button) button.disabled = true;
+
+  try {
+    const { response, payload } = await fetchJson(
+      `${API_BASE}/presets/favorites/toggle`,
+      {
+        method: "POST",
+        headers: { ...buildSessionAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ preset_key: presetKey }),
+      },
+      15000
+    );
+    if (!response.ok || payload?.ok !== true) return;
+    if (payload.is_favorite) favoritePresetKeys.add(payload.preset_key || presetKey);
+    else favoritePresetKeys.delete(payload.preset_key || presetKey);
+    visibleMilkPresets = sortPresetsFavoritesFirst(visibleMilkPresets);
+    renderMilkPresets(visibleMilkPresets);
+  } catch (_) {
+    // Quiet fallback: favorites are optional UX, catalog must keep working.
+  } finally {
+    pendingFavoriteToggles.delete(presetKey);
+    if (button) button.disabled = false;
+  }
+}
 /* Milk presets UI */
 function renderMilkPresets(list) {
+  const sortedList = sortPresetsFavoritesFirst(list);
   milkPresetGrid.innerHTML = "";
 
-  if (!list.length) {
+  if (!sortedList.length) {
     milkPresetGrid.innerHTML = `<div class="hint">${currentLang === "ru" ? "Ничего не найдено." : "Nothing found."}</div>`;
     return;
   }
 
-  list.forEach((preset) => {
-    const card = document.createElement("button");
-    card.type = "button";
+  sortedList.forEach((preset) => {
+    const isFavorite = favoritePresetKeys.has(preset.key);
+    const card = document.createElement("div");
+    card.setAttribute("role", "button");
+    card.tabIndex = 0;
     card.className = `preset-card ${milkPresetInput.value === preset.key ? "active" : ""}`;
     card.innerHTML = `
+      <button class="favorite-toggle ${isFavorite ? "active" : ""}" type="button" aria-label="${escapeHtml(t(isFavorite ? "unfavoritePreset" : "favoritePreset"))}" title="${escapeHtml(t(isFavorite ? "unfavoritePreset" : "favoritePreset"))}">${isFavorite ? "★" : "☆"}</button>
       <canvas class="preset-preview" width="520" height="220" data-preview-family="${preset.family}"></canvas>
       <div class="preset-name">${escapeHtml(preset.name)}</div>
       <div class="preset-meta">${escapeHtml(preset.family)}</div>
       <p class="preset-desc">${escapeHtml(preset.desc)}</p>
     `;
 
-    card.addEventListener("click", () => {
+    const selectPreset = () => {
       milkPresetInput.value = preset.key;
-      renderMilkPresets(list);
+      renderMilkPresets(sortedList);
       restartPreviewLoop();
+    };
+
+    card.addEventListener("click", selectPreset);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectPreset();
+      }
+    });
+
+    const favoriteButton = card.querySelector(".favorite-toggle");
+    favoriteButton?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      togglePresetFavorite(preset.key, favoriteButton);
     });
 
     milkPresetGrid.appendChild(card);
   });
 
+  visibleMilkPresets = sortedList;
   restartPreviewLoop();
 }
 
 function refreshMilkRandom() {
-  const shuffled = shuffleArray(milkPresets).slice(0, 6);
+  const shuffled = buildDefaultVisiblePresets();
   visibleMilkPresets = shuffled;
 
   if (!shuffled.find((x) => x.key === milkPresetInput.value)) {
@@ -910,7 +1028,6 @@ function refreshMilkRandom() {
 
   renderMilkPresets(shuffled);
 }
-
 function filterMilkPresets() {
   const query = milkSearchInput.value.trim().toLowerCase();
 
@@ -929,7 +1046,7 @@ function filterMilkPresets() {
     milkPresetInput.value = filtered[0].key;
   }
 
-  renderMilkPresets(filtered);
+  renderMilkPresets(sortPresetsFavoritesFirst(filtered));
 }
 
 function updateEngineUi() {
@@ -959,11 +1076,43 @@ function formatHistoryDate(value) {
   });
 }
 
+function normalizeHistoryStatus(item) {
+  const renderStatus = String(item?.render_status || item?.status || "queued").toLowerCase();
+  const deliveryStatus = String(item?.delivery_status || "").toLowerCase();
+  const telegramDelivery = String(item?.telegram_delivery || "").toLowerCase();
+  if (renderStatus === "done" && (deliveryStatus === "failed" || telegramDelivery === "failed")) return "delivery_failed";
+  if (renderStatus === "done" && (deliveryStatus === "pending" || telegramDelivery === "pending")) return "sending";
+  if (["sending_to_telegram", "sending", "delivery_pending"].includes(renderStatus)) return "sending";
+  if (["processing", "rendering"].includes(renderStatus)) return "rendering";
+  if (["finalizing", "muxing"].includes(renderStatus)) return "finalizing";
+  if (["done", "delivered"].includes(renderStatus)) return "done";
+  if (["failed", "render_failed", "render_timeout"].includes(renderStatus)) return "failed";
+  return "queued";
+}
+
+function historyStatusLabel(statusKey) {
+  const labels = {
+    queued: t("statusQueued"),
+    rendering: t("statusRendering"),
+    finalizing: t("statusFinalizing"),
+    sending: t("statusSending"),
+    done: t("statusDone"),
+    failed: t("statusFailed"),
+    delivery_failed: t("statusDeliveryFailed"),
+  };
+  return labels[statusKey] || t("statusQueued");
+}
+
+function historyModeLabel(mode) {
+  const normalized = String(mode || "demo").toLowerCase();
+  return normalized === "full" ? t("modeFull") : t("modeDemo");
+}
+
 function ensurePresetVisible(presetKey) {
   const preset = milkPresets.find((item) => item.key === presetKey);
   if (!preset) return;
   if (!visibleMilkPresets.find((item) => item.key === presetKey)) {
-    visibleMilkPresets = [preset, ...visibleMilkPresets].slice(0, Math.max(6, visibleMilkPresets.length || 6));
+    visibleMilkPresets = sortPresetsFavoritesFirst([preset, ...visibleMilkPresets]).slice(0, Math.max(6, visibleMilkPresets.length || 6));
   }
   renderMilkPresets(visibleMilkPresets);
 }
@@ -979,22 +1128,31 @@ function renderHistory(items) {
 
   renderHistoryList.innerHTML = recentRenderHistory.map((item, index) => {
     const preset = item.preset || item.style || item.reuse_settings?.milk_preset || "neon_mandala";
-    const mode = String(item.mode || "demo").toUpperCase();
-    const status = String(item.render_status || item.status || "queued");
+    const mode = String(item.mode || item.reuse_settings?.mode || "demo").toLowerCase();
+    const statusKey = normalizeHistoryStatus(item);
     const orientation = item.orientation || item.reuse_settings?.orientation || "portrait";
     const backgroundLabel = item.background_mode === "custom" ? t("backgroundCustom") : t("backgroundDefault");
     const canReuse = item.can_reuse_settings !== false;
-    const date = formatHistoryDate(item.created_at);
+    const createdDate = formatHistoryDate(item.created_at);
+    const updatedDate = formatHistoryDate(item.updated_at);
+    const dateLabel = createdDate ? `${t("historyCreated")}: ${createdDate}` : (updatedDate ? `${t("historyUpdated")}: ${updatedDate}` : "");
+    const modeLabel = historyModeLabel(mode);
+    const statusLabel = historyStatusLabel(statusKey);
+    const presetName = presetDisplayName(preset);
     return `
       <div class="history-item">
         <div class="history-main">
-          <div>
-            <div class="history-preset">${escapeHtml(presetDisplayName(preset))}</div>
-            <div class="history-meta">${escapeHtml(mode)} · ${escapeHtml(status)} · ${escapeHtml(orientation)}</div>
-            <div class="history-note">${escapeHtml([date, backgroundLabel].filter(Boolean).join(" · "))}</div>
+          <div class="history-copy">
+            <div class="history-preset">${escapeHtml(presetName)}</div>
+            <div class="history-meta">${escapeHtml([orientation, backgroundLabel].filter(Boolean).join(" · "))}</div>
+            <div class="history-note">${escapeHtml(dateLabel)}</div>
+          </div>
+          <div class="history-badges" aria-label="${escapeHtml(`${modeLabel}, ${statusLabel}`)}">
+            <span class="history-chip history-chip-mode history-chip-${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>
+            <span class="history-chip history-chip-status history-status-${escapeHtml(statusKey)}">${escapeHtml(statusLabel)}</span>
           </div>
         </div>
-        ${canReuse ? `<div class="history-actions"><button class="ghost-button" type="button" data-history-index="${index}">${escapeHtml(t("reuseSettings"))}</button></div>` : ""}
+        ${canReuse ? `<div class="history-actions"><button class="history-reuse-button" type="button" data-history-index="${index}">${escapeHtml(t("reuseSettings"))}</button></div>` : ""}
       </div>
     `;
   }).join("");
@@ -1058,15 +1216,15 @@ function previewRgba(hex, alpha) {
 }
 
 const previewVariants = {
-  mandala_bloom: { base: "neon_mandala", density: 1.45, scale: 1.14, speed: 0.78, shape: "bloom" },
-  tunnel_depth: { base: "bass_tunnel", density: 1.55, scale: 1.12, speed: 0.68, shape: "deep" },
-  laser_burst: { base: "laser_fan", density: 1.75, scale: 1.16, speed: 1.35, shape: "burst" },
-  plasma_shell: { base: "plasma_orb", density: 1.18, scale: 1.30, speed: 0.76, shape: "shell" },
-  particle_crown: { base: "particle_fountain", density: 1.55, scale: 1.16, speed: 0.68, shape: "crown" },
-  double_ring_echo: { base: "double_ring", density: 1.65, scale: 1.08, speed: 0.86, shape: "echo" },
-  radial_burst: { base: "radial_bars", density: 1.65, scale: 1.10, speed: 1.15, shape: "burst" },
+  mandala_bloom: { base: "neon_mandala", density: 1.45, scale: 1.10, speed: 0.78, shape: "" },
+  tunnel_depth: { base: "bass_tunnel", density: 1.35, scale: 1.05, speed: 0.72, shape: "" },
+  laser_burst: { base: "laser_fan", density: 1.48, scale: 1.05, speed: 1.15, shape: "" },
+  plasma_shell: { base: "plasma_orb", density: 1.18, scale: 1.16, speed: 0.76, shape: "" },
+  particle_crown: { base: "particle_fountain", density: 1.35, scale: 1.10, speed: 0.68, shape: "" },
+  double_ring_echo: { base: "double_ring", density: 1.45, scale: 1.04, speed: 0.86, shape: "" },
+  radial_burst: { base: "radial_bars", density: 1.38, scale: 1.02, speed: 1.05, shape: "" },
   orbital_storm: { base: "orbital_scope", density: 1.85, scale: 1.10, speed: 1.28, shape: "dense_orbit" },
-  spectrum_wall: { base: "spectrogram_plus", density: 1.55, scale: 1.22, speed: 1.08, shape: "wall" },
+  spectrum_wall: { base: "spectrogram_plus", density: 1.35, scale: 1.08, speed: 1.00, shape: "" },
 };
 function drawPreviewScene(ctx, family, width, height, tSec, primary, accent, active) {
   ctx.clearRect(0, 0, width, height);
