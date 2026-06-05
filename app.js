@@ -1,4 +1,4 @@
-const API_BASE = "https://facing-proteins-pump-permitted.trycloudflare.com";
+﻿const API_BASE_URL = "https://api.r1zoor.cyou";
 const SESSION_AUTH_RETRY_DELAY_MS = 700;
 const SESSION_TOKEN_PARAM = "session_token";
 const FULL_MAX_DURATION_SECONDS = 360;
@@ -69,6 +69,7 @@ const customTextInput = document.getElementById("customTextInput");
 const tokensBadge = document.getElementById("tokensBadge");
 const renderHistoryList = document.getElementById("renderHistoryList");
 const historyRefreshButton = document.getElementById("historyRefreshButton");
+const openBotBuyButton = document.getElementById("openBotBuyButton");
 
 /* State */
 let currentLang = "ru";
@@ -88,7 +89,7 @@ function updateTokensBadge(value) {
 }
 
 function buildAccessUrl(path) {
-  const url = new URL(`${API_BASE}${path}`);
+  const url = new URL(`${API_BASE_URL}${path}`);
   return url.toString();
 }
 
@@ -191,9 +192,35 @@ async function verifyFullModeAccess() {
 }
 
 function fullAccessRequiredMessage() {
-  return "Full render needs 1 token. Buy tokens in the bot or use Demo mode.";
+  return currentLang === "ru"
+    ? "Full render стоит 1 токен. Откройте бота, чтобы выбрать пакет. Доступны пакеты: 25, 100 и 250 токенов."
+    : "Full render needs 1 token. Open the bot to choose a package. Packages available: 25, 100, 250 tokens.";
 }
 
+
+function paymentMethodsHtml() {
+  return `
+    <div class="payment-methods-inline">
+      <strong>${escapeHtml(t("paymentMethodsTitle"))}</strong>
+      <span>${escapeHtml(t("paymentMethodsText"))}</span>
+      <span>${escapeHtml(t("paymentMethodStars"))}</span>
+      <span>${escapeHtml(t("paymentMethodCrypto"))}</span>
+      <button id="statusOpenBotBuyButton" class="ghost-button payment-open-bot" type="button">${escapeHtml(t("openBotBuyButton"))}</button>
+    </div>`;
+}
+
+function fullAccessRequiredHtml() {
+  return `<p>${formatStatusHtml(fullAccessRequiredMessage())}</p>${paymentMethodsHtml()}`;
+}
+
+function openBotToBuyTokens() {
+  const webApp = getTelegramWebApp();
+  if (webApp && typeof webApp.close === "function") {
+    webApp.close();
+    return;
+  }
+  setStatus(t("openBotFallback"), "info");
+}
 function accessVerificationFailedMessage() {
   return "Unable to verify Full mode access. Please try again or use Demo mode.";
 }
@@ -276,6 +303,12 @@ const i18n = {
     deliveryTitle: "Delivery: Telegram",
     deliverySubtitle: "Your video will be sent to your Telegram chat",
     deliveryLargeNote: "Large videos may be sent as a download link",
+    paymentMethodsTitle: "How to pay",
+    paymentMethodsText: "You can buy tokens in the bot.",
+    paymentMethodStars: "Telegram Stars (in-app)",
+    paymentMethodCrypto: "Crypto: USDT, TON (via bot)",
+    openBotBuyButton: "Open bot to buy tokens",
+    openBotFallback: "Open the Telegram bot to choose a token package.",
     footerNote: "Rendering may take some time. Ready MP4 will be sent by bot directly into Telegram chat.",
     noFile: "Please select an audio file.",
     checkingApi: "Checking API availability...",
@@ -289,7 +322,7 @@ const i18n = {
     deliveryFailed: "Your video is ready, but Telegram delivery failed",
     doneChat: "Video sent to Telegram",
     failed: "Render failed",
-    networkError: "Network error. Please check API_BASE, tunnel, and CORS.",
+    networkError: "Network error. Please check API_BASE_URL, tunnel, and CORS.",
     badResponse: "Server returned an unexpected response.",
     healthFailed: "API health check failed.",
     resetDone: "Form reset.",
@@ -320,6 +353,8 @@ const i18n = {
     favoritePreset: "Add to favorites",
     unfavoritePreset: "Remove from favorites",
     reuseSettings: "Reuse settings",
+    retryWithSettings: "Try again with these settings",
+    retryNeedsFiles: "You'll need to choose audio/background again.",
     settingsReused: "Settings reused. Upload audio and create a new video.",
     chooseBackgroundAgain: "Previous background file is not reused. Choose a background again if needed.",
     backgroundCustom: "custom background",
@@ -369,6 +404,12 @@ const i18n = {
     deliveryTitle: "Delivery: Telegram",
     deliverySubtitle: "Your video will be sent to your Telegram chat",
     deliveryLargeNote: "Large videos may be sent as a download link",
+    paymentMethodsTitle: "Как оплатить",
+    paymentMethodsText: "Токены покупаются в боте.",
+    paymentMethodStars: "Telegram Stars (внутри Telegram)",
+    paymentMethodCrypto: "Криптовалюта: USDT, TON (через бота)",
+    openBotBuyButton: "Открыть бота для покупки токенов",
+    openBotFallback: "Откройте Telegram-бота, чтобы выбрать пакет токенов.",
     footerNote: "Рендер может занять время. Готовый MP4 бот отправит прямо в Telegram-чат.",
     noFile: "Сначала выбери аудиофайл.",
     checkingApi: "Проверяю API...",
@@ -382,7 +423,7 @@ const i18n = {
     deliveryFailed: "Your video is ready, but Telegram delivery failed",
     doneChat: "Video sent to Telegram",
     failed: "Рендер завершился ошибкой",
-    networkError: "Сетевая ошибка. Проверь API_BASE, tunnel и CORS.",
+    networkError: "Сетевая ошибка. Проверь API_BASE_URL, tunnel и CORS.",
     badResponse: "Сервер вернул неожиданный ответ.",
     healthFailed: "Проверка API не прошла.",
     resetDone: "Форма сброшена.",
@@ -413,6 +454,8 @@ const i18n = {
     favoritePreset: "Добавить в избранное",
     unfavoritePreset: "Убрать из избранного",
     reuseSettings: "Повторить настройки",
+    retryWithSettings: "Попробовать снова с этими настройками",
+    retryNeedsFiles: "Аудио и фон нужно будет выбрать заново.",
     settingsReused: "Настройки подставлены. Загрузи аудио и создай новое видео.",
     chooseBackgroundAgain: "Старый файл фона не переиспользуется. Выбери фон заново, если нужно.",
     backgroundCustom: "кастомный фон",
@@ -460,7 +503,10 @@ function setStatus(message, type = "info") {
   statusBox.className = "status show";
   if (type === "success") statusBox.classList.add("success");
   if (type === "error") statusBox.classList.add("error");
-  statusBox.innerHTML = `<p>${message}</p>`;
+  const html = String(message || "").trim().startsWith("<") ? message : `<p>${message}</p>`;
+  statusBox.innerHTML = html;
+  const statusOpenBotButton = document.getElementById("statusOpenBotBuyButton");
+  if (statusOpenBotButton) statusOpenBotButton.addEventListener("click", openBotToBuyTokens);
 }
 
 function hideStatus() {
@@ -923,7 +969,7 @@ async function loadPresetFavorites({ silent = true } = {}) {
 
   try {
     const { response, payload } = await fetchJson(
-      `${API_BASE}/presets/favorites`,
+      `${API_BASE_URL}/presets/favorites`,
       { method: "GET", headers: buildSessionAuthHeaders() },
       15000
     );
@@ -946,7 +992,7 @@ async function togglePresetFavorite(presetKey, button) {
 
   try {
     const { response, payload } = await fetchJson(
-      `${API_BASE}/presets/favorites/toggle`,
+      `${API_BASE_URL}/presets/favorites/toggle`,
       {
         method: "POST",
         headers: { ...buildSessionAuthHeaders(), "Content-Type": "application/json" },
@@ -1132,7 +1178,10 @@ function renderHistory(items) {
     const statusKey = normalizeHistoryStatus(item);
     const orientation = item.orientation || item.reuse_settings?.orientation || "portrait";
     const backgroundLabel = item.background_mode === "custom" ? t("backgroundCustom") : t("backgroundDefault");
-    const canReuse = item.can_reuse_settings !== false;
+    const canReuse = item.can_reuse_settings === true;
+    const isRecoveryAction = statusKey === "failed" || statusKey === "delivery_failed";
+    const actionLabel = isRecoveryAction ? t("retryWithSettings") : t("reuseSettings");
+    const recoveryHint = isRecoveryAction && canReuse ? t("retryNeedsFiles") : "";
     const createdDate = formatHistoryDate(item.created_at);
     const updatedDate = formatHistoryDate(item.updated_at);
     const dateLabel = createdDate ? `${t("historyCreated")}: ${createdDate}` : (updatedDate ? `${t("historyUpdated")}: ${updatedDate}` : "");
@@ -1146,13 +1195,14 @@ function renderHistory(items) {
             <div class="history-preset">${escapeHtml(presetName)}</div>
             <div class="history-meta">${escapeHtml([orientation, backgroundLabel].filter(Boolean).join(" · "))}</div>
             <div class="history-note">${escapeHtml(dateLabel)}</div>
+            ${recoveryHint ? `<div class="history-note history-recovery-hint">${escapeHtml(recoveryHint)}</div>` : ""}
           </div>
           <div class="history-badges" aria-label="${escapeHtml(`${modeLabel}, ${statusLabel}`)}">
             <span class="history-chip history-chip-mode history-chip-${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>
             <span class="history-chip history-chip-status history-status-${escapeHtml(statusKey)}">${escapeHtml(statusLabel)}</span>
           </div>
         </div>
-        ${canReuse ? `<div class="history-actions"><button class="history-reuse-button" type="button" data-history-index="${index}">${escapeHtml(t("reuseSettings"))}</button></div>` : ""}
+        ${canReuse ? `<div class="history-actions"><button class="history-reuse-button ${isRecoveryAction ? "history-retry-button" : ""}" type="button" data-history-index="${index}">${escapeHtml(actionLabel)}</button></div>` : ""}
       </div>
     `;
   }).join("");
@@ -1170,7 +1220,7 @@ async function loadRenderHistory({ silent = false } = {}) {
 
   try {
     const { response, payload } = await fetchJson(
-      `${API_BASE}/renders/history?limit=10`,
+      `${API_BASE_URL}/renders/history?limit=10`,
       { method: "GET", headers: buildSessionAuthHeaders() },
       20000
     );
@@ -1645,7 +1695,7 @@ function updateCustomTextVisibility() {
 
 /* API helpers */
 async function checkHealth() {
-  const { response, payload } = await fetchJson(`${API_BASE}/`, { method: "GET" }, 15000);
+  const { response, payload } = await fetchJson(`${API_BASE_URL}/`, { method: "GET" }, 15000);
   if (!response.ok) {
     throw new Error(extractErrorMessage(payload, t("healthFailed")));
   }
@@ -1655,7 +1705,7 @@ async function checkHealth() {
 function buildDownloadUrl(downloadUrl) {
   if (!downloadUrl) return "";
   if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) return downloadUrl;
-  return `${API_BASE}${downloadUrl}`;
+  return `${API_BASE_URL}${downloadUrl}`;
 }
 
 function normalizeRenderStatus(payload) {
@@ -1851,7 +1901,7 @@ async function uploadAndRender() {
       const accessResult = await verifyFullModeAccess();
       if (!accessResult.allowed) {
         console.warn("Full mode access preflight blocked render", accessResult);
-        let message = fullAccessRequiredMessage();
+        let message = fullAccessRequiredHtml();
         if (accessResult.reason === "no_telegram_context") {
           message = telegramContextRequiredMessage();
         } else if (accessResult.reason === "auth_failed") {
@@ -1892,7 +1942,7 @@ async function uploadAndRender() {
     });
 
     const { response: uploadResponse, payload: uploadData } = await fetchJson(
-      `${API_BASE}/upload`,
+      `${API_BASE_URL}/api/v1/render`,
       {
         method: "POST",
         headers: buildSessionAuthHeaders(),
@@ -1934,7 +1984,7 @@ async function uploadAndRender() {
 
       try {
         const statusResult = await fetchJson(
-          `${API_BASE}/status/${taskId}`,
+          `${API_BASE_URL}/status/${taskId}`,
           { method: "GET" },
           30000
         );
@@ -2083,6 +2133,7 @@ langToggle?.addEventListener("click", () => {
 });
 
 modeSelect.addEventListener("change", updateCustomTextVisibility);
+openBotBuyButton?.addEventListener("click", openBotToBuyTokens);
 
 removeBackgroundButton?.addEventListener("click", clearSelectedBackground);
 

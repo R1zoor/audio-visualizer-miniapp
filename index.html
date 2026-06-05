@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -275,6 +275,7 @@
         rgba(255,255,255,0.03);
       cursor: pointer;
       transition: 0.2s ease;
+      position: relative;
     }
 
     .preset-card:hover {
@@ -289,6 +290,41 @@
       box-shadow: 0 0 0 3px rgba(40,199,224,0.10);
     }
 
+    .favorite-toggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(5,9,20,0.72);
+      color: rgba(255,255,255,0.72);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s ease;
+      z-index: 2;
+    }
+
+    .favorite-toggle:hover {
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+    }
+
+    .favorite-toggle.active {
+      border-color: rgba(255, 212, 94, 0.72);
+      color: #ffd45e;
+      box-shadow: 0 0 16px rgba(255, 212, 94, 0.18);
+    }
+
+    .favorite-toggle:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
     .preset-preview {
       width: 100%;
       height: 120px;
@@ -406,6 +442,59 @@
       color: rgba(167, 176, 190, 0.86);
     }
 
+
+    .payment-methods-info {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .payment-methods-title {
+      color: var(--text);
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .payment-methods-text {
+      margin-bottom: 8px;
+    }
+
+    .payment-methods-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 12px;
+    }
+
+    .payment-method-chip {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .payment-open-bot {
+      margin-top: 2px;
+    }
+
+    .payment-methods-inline {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+      color: var(--muted);
+    }
+
+    .payment-methods-inline strong {
+      color: var(--text);
+    }
     .button {
       appearance: none;
       border: none;
@@ -507,8 +596,8 @@
 
     .history-item {
       display: grid;
-      gap: 8px;
-      padding: 10px;
+      gap: 9px;
+      padding: 11px;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
@@ -521,9 +610,14 @@
       align-items: flex-start;
     }
 
+    .history-copy {
+      min-width: 0;
+    }
+
     .history-preset {
       font-size: 14px;
       font-weight: 800;
+      line-height: 1.25;
     }
 
     .history-meta,
@@ -531,11 +625,111 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.4;
+      margin-top: 3px;
+    }
+
+    .history-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex-shrink: 0;
+      max-width: 46%;
+    }
+
+    .history-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .history-chip-full {
+      color: var(--accent);
+      border-color: rgba(40, 199, 224, 0.25);
+      background: rgba(40, 199, 224, 0.08);
+    }
+
+    .history-chip-demo {
+      color: var(--warning);
+      border-color: rgba(255, 209, 102, 0.22);
+      background: rgba(255, 209, 102, 0.07);
+    }
+
+    .history-status-done {
+      color: var(--success);
+      border-color: rgba(81, 207, 102, 0.24);
+      background: rgba(81, 207, 102, 0.08);
+    }
+
+    .history-status-failed,
+    .history-status-delivery_failed {
+      color: var(--danger);
+      border-color: rgba(255, 107, 107, 0.24);
+      background: rgba(255, 107, 107, 0.08);
+    }
+
+    .history-status-rendering,
+    .history-status-finalizing,
+    .history-status-sending {
+      color: var(--accent);
+      border-color: rgba(40, 199, 224, 0.22);
+      background: rgba(40, 199, 224, 0.07);
     }
 
     .history-actions {
       display: flex;
       justify-content: flex-end;
+    }
+
+    .history-reuse-button {
+      appearance: none;
+      border: 1px solid rgba(40, 199, 224, 0.25);
+      background: rgba(40, 199, 224, 0.07);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      transition: 0.2s ease;
+    }
+
+    .history-reuse-button:hover {
+      background: rgba(40, 199, 224, 0.12);
+    }
+
+    .history-retry-button {
+      border-color: rgba(255, 209, 102, 0.28);
+      background: rgba(255, 209, 102, 0.08);
+    }
+
+    .history-retry-button:hover {
+      background: rgba(255, 209, 102, 0.13);
+    }
+
+    .history-recovery-hint {
+      color: var(--warning);
+      opacity: 0.86;
+    }
+
+    @media (max-width: 520px) {
+      .history-main {
+        flex-direction: column;
+      }
+
+      .history-badges {
+        max-width: 100%;
+        justify-content: flex-start;
+      }
     }
 
     .footer-note {
@@ -760,6 +954,18 @@
         <div class="delivery-note-small" data-i18n="deliveryLargeNote">Large videos may be sent as a download link</div>
       </div>
 
+
+      <div class="payment-methods-info">
+        <div class="payment-methods-title" data-i18n="paymentMethodsTitle">How to pay</div>
+        <div class="payment-methods-text" data-i18n="paymentMethodsText">You can buy tokens in the bot.</div>
+        <div class="payment-methods-list" aria-label="Payment methods">
+          <span class="payment-method-chip" data-i18n="paymentMethodStars">Telegram Stars (in-app)</span>
+          <span class="payment-method-chip" data-i18n="paymentMethodCrypto">Crypto: USDT, TON (via bot)</span>
+        </div>
+        <button id="openBotBuyButton" class="ghost-button payment-open-bot" type="button" data-i18n="openBotBuyButton">
+          Open bot to buy tokens
+        </button>
+      </div>
       <div id="statusBox" class="status"></div>
 
       <div class="history-panel">
