@@ -144,27 +144,31 @@ async function fetchAccessSnapshot(path, context) {
       path,
       status: response.status,
       errorCode,
-      payload,
+      payload: sanitizePayloadForLog(payload),
     });
     if (response.status === 401) {
       console.warn("[access] endpoint returned 401:", path);
     }
+    const apiError = normalizeApiError({ url, options: { method: "GET", headers }, response, payload });
     return {
       ok: false,
       path,
       status: response.status,
       errorCode,
-      message: response.ok ? "invalid access response" : `HTTP ${response.status}`,
+      message: response.ok ? "invalid access response" : apiError.userMessage,
+      apiError,
     };
   } catch (error) {
+    const apiError = error?.apiError || normalizeApiError({ url, options: { method: "GET", headers }, error });
     console.warn("Access preflight failed", {
       path,
-      error,
+      error: apiError,
     });
     return {
       ok: false,
       path,
-      message: error?.message || "network error",
+      message: apiError.userMessage || error?.message || "network error",
+      apiError,
     };
   }
 }
@@ -331,6 +335,10 @@ const i18n = {
     validationFailed: "Validation error.",
     requestTimeout: "Request timeout. Please try again.",
     statusUnavailable: "Status request failed.",
+    networkUnavailable: "Network unavailable or API is down.",
+    corsOrMixedContent: "Request blocked by browser (CORS / mixed content).",
+    serverError: "Server error",
+    authError: "Authorization error",
     progress: "Progress",
     queuePosition: "Queue position",
     queueEta: "Approx. wait",
@@ -432,6 +440,10 @@ const i18n = {
     validationFailed: "Ошибка валидации.",
     requestTimeout: "Таймаут запроса. Попробуй ещё раз.",
     statusUnavailable: "Не удалось получить статус.",
+    networkUnavailable: "Сеть недоступна или API выключен.",
+    corsOrMixedContent: "Запрос заблокирован браузером (CORS / mixed content).",
+    serverError: "Ошибка сервера",
+    authError: "Ошибка авторизации",
     progress: "Прогресс",
     queuePosition: "Позиция в очереди",
     queueEta: "Примерно ждать",
@@ -709,13 +721,17 @@ async function runTelegramAuthCheck({ allowAutoRetry = true, renderStatus = fals
 
   const result = {
     state: accessUiState,
-    reason: "business_or_unverified",
+    reason: errors.some((error) => error.apiError) ? "api_error" : "business_or_unverified",
     balance: balanceResult,
     plan: planResult,
     errors,
   };
   lastAuthCheckResult = result;
-  if (renderStatus) hideStatus();
+  if (renderStatus && result.reason === "api_error") {
+    setStatus(apiErrorMessage(errors.find((error) => error.apiError)?.apiError), "error");
+  } else if (renderStatus) {
+    hideStatus();
+  }
   console.warn("[access] preflight ended without auth state change", {
     errors: errors.map((error) => ({ path: error.path, status: error.status, errorCode: error.errorCode || "" })),
   });
@@ -893,6 +909,130 @@ function extractErrorMessage(payload, fallback = "Request failed.") {
   }
 }
 
+function maskSensitiveValue(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  return text.length <= 6 ? `${text.slice(0, 2)}***` : `${text.slice(0, 6)}***`;
+}
+
+function sanitizeUrlForLog(value) {
+  try {
+    const url = new URL(String(value), window.location.href);
+    if (url.searchParams.has(SESSION_TOKEN_PARAM)) {
+      url.searchParams.set(SESSION_TOKEN_PARAM, maskSensitiveValue(url.searchParams.get(SESSION_TOKEN_PARAM)));
+    }
+    return url.toString();
+  } catch (_) {
+    return String(value || "").replace(/(session_token=)([^&]+)/gi, (_, prefix, token) => `${prefix}${maskSensitiveValue(token)}`);
+  }
+}
+
+function sanitizeHeadersForLog(headers = {}) {
+  const result = {};
+  const source = headers instanceof Headers ? Object.fromEntries(headers.entries()) : headers;
+  Object.entries(source || {}).forEach(([key, value]) => {
+    if (String(key).toLowerCase() === "authorization") {
+      const token = String(value || "").replace(/^Bearer\s+/i, "");
+      result[key] = token ? `Bearer ${maskSensitiveValue(token)}` : "";
+    } else {
+      result[key] = value;
+    }
+  });
+  return result;
+}
+
+function sanitizePayloadForLog(value, depth = 0) {
+  if (depth > 5) return "[depth-limit]";
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+  if (value instanceof FormData) return "[FormData]";
+  if (value instanceof Blob) return `[Blob ${value.type || "unknown"} ${value.size || 0} bytes]`;
+  if (Array.isArray(value)) return value.map((item) => sanitizePayloadForLog(item, depth + 1));
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => {
+      const lowerKey = String(key).toLowerCase();
+      if (lowerKey.includes("token") || lowerKey === "authorization") {
+        return [key, maskSensitiveValue(item)];
+      }
+      return [key, sanitizePayloadForLog(item, depth + 1)];
+    })
+  );
+}
+
+function safeResponseSnippet(payload) {
+  const message = extractErrorMessage(payload, "");
+  return message ? message.replace(/\s+/g, " ").trim().slice(0, 220) : "";
+}
+
+function isCorsOrMixedContentError(error, url) {
+  const message = String(error?.message || "").toLowerCase();
+  const targetUrl = String(url || "");
+  const currentProtocol = window.location?.protocol || "";
+  const targetIsHttp = /^http:\/\//i.test(targetUrl);
+  return (
+    (currentProtocol === "https:" && targetIsHttp) ||
+    message.includes("cors") ||
+    message.includes("cross-origin") ||
+    message.includes("mixed content") ||
+    message.includes("blocked by cors") ||
+    message.includes("blocked a frame") ||
+    message.includes("has been blocked")
+  );
+}
+
+function normalizeApiError({ url, options = {}, response = null, payload = null, error = null, fallback = "" } = {}) {
+  const status = response?.status || error?.status || null;
+  const errorCode = getBackendErrorCode(payload) || error?.errorCode || "";
+  const rawMessage = error?.message || safeResponseSnippet(payload) || fallback || t("networkError");
+  const method = options?.method || "GET";
+  const type = status ? "http" : (isCorsOrMixedContentError(error, url) ? "cors_mixed_content" : "network");
+
+  let userMessage;
+  if (status === 401 || AUTH_ERROR_CODES.has(errorCode)) {
+    const authText = AUTH_ERROR_CODES.has(errorCode)
+      ? accessMessageForErrorCode(errorCode)
+      : (safeResponseSnippet(payload) || accessAuthFailedMessage());
+    userMessage = `${t("authError")}: ${authText}`;
+  } else if (!status && type === "cors_mixed_content") {
+    userMessage = t("corsOrMixedContent");
+  } else if (!status) {
+    userMessage = t("networkUnavailable");
+  } else if (status >= 500) {
+    userMessage = `${t("serverError")}: ${status}${safeResponseSnippet(payload) ? ` ${safeResponseSnippet(payload)}` : ""}`;
+  } else {
+    userMessage = `${t("serverError")}: ${status}${safeResponseSnippet(payload) ? ` ${safeResponseSnippet(payload)}` : ""}`;
+  }
+
+  return {
+    type,
+    url: sanitizeUrlForLog(url),
+    method,
+    status,
+    errorCode,
+    message: rawMessage,
+    userMessage,
+    payload: sanitizePayloadForLog(payload),
+  };
+}
+
+function logApiError(scope, details) {
+  console.error(scope, {
+    type: details.type,
+    url: details.url,
+    method: details.method,
+    headers: details.headers,
+    status: details.status,
+    errorCode: details.errorCode,
+    message: details.message,
+    payload: details.payload,
+  });
+}
+
+function apiErrorMessage(details) {
+  return details?.userMessage || t("networkError");
+}
+
 function withTimeout(promise, timeoutMs, timeoutMessage) {
   let timerId;
   const timeoutPromise = new Promise((_, reject) => {
@@ -903,7 +1043,19 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 }
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
-  const response = await withTimeout(fetch(url, options), timeoutMs, t("requestTimeout"));
+  let response;
+  try {
+    response = await withTimeout(fetch(url, options), timeoutMs, t("requestTimeout"));
+  } catch (error) {
+    const details = normalizeApiError({ url, options, error, fallback: t("networkError") });
+    details.headers = sanitizeHeadersForLog(options.headers);
+    error.apiError = details;
+    logApiError("[api] request failed", {
+      ...details,
+      headers: sanitizeHeadersForLog(options.headers),
+    });
+    throw error;
+  }
   const contentType = response.headers.get("content-type") || "";
 
   let payload = null;
@@ -912,6 +1064,12 @@ async function fetchJson(url, options = {}, timeoutMs = 30000) {
   } else {
     const text = await response.text();
     payload = text ? { detail: text } : null;
+  }
+
+  if (!response.ok) {
+    const details = normalizeApiError({ url, options, response, payload });
+    details.headers = sanitizeHeadersForLog(options.headers);
+    logApiError("[api] response failed", details);
   }
 
   return { response, payload };
@@ -974,14 +1132,21 @@ async function loadPresetFavorites({ silent = true } = {}) {
       15000
     );
     if (!response.ok || !Array.isArray(payload?.items)) {
-      if (!silent) console.warn("Preset favorites unavailable", response.status);
+      if (!silent) {
+        console.warn("Preset favorites unavailable", normalizeApiError({
+          url: `${API_BASE_URL}/presets/favorites`,
+          options: { method: "GET", headers: buildSessionAuthHeaders() },
+          response,
+          payload,
+        }));
+      }
       return;
     }
     favoritePresetKeys = new Set(payload.items.filter((key) => milkPresets.some((preset) => preset.key === key)));
     visibleMilkPresets = sortPresetsFavoritesFirst(visibleMilkPresets);
     renderMilkPresets(visibleMilkPresets);
   } catch (error) {
-    if (!silent) console.warn("Preset favorites unavailable", error);
+    if (!silent) console.warn("Preset favorites unavailable", error?.apiError || error);
   }
 }
 
@@ -1000,12 +1165,21 @@ async function togglePresetFavorite(presetKey, button) {
       },
       15000
     );
-    if (!response.ok || payload?.ok !== true) return;
+    if (!response.ok || payload?.ok !== true) {
+      console.warn("Preset favorite toggle unavailable", normalizeApiError({
+        url: `${API_BASE_URL}/presets/favorites/toggle`,
+        options: { method: "POST", headers: { ...buildSessionAuthHeaders(), "Content-Type": "application/json" } },
+        response,
+        payload,
+      }));
+      return;
+    }
     if (payload.is_favorite) favoritePresetKeys.add(payload.preset_key || presetKey);
     else favoritePresetKeys.delete(payload.preset_key || presetKey);
     visibleMilkPresets = sortPresetsFavoritesFirst(visibleMilkPresets);
     renderMilkPresets(visibleMilkPresets);
-  } catch (_) {
+  } catch (error) {
+    console.warn("Preset favorite toggle unavailable", error?.apiError || error);
     // Quiet fallback: favorites are optional UX, catalog must keep working.
   } finally {
     pendingFavoriteToggles.delete(presetKey);
@@ -1225,12 +1399,27 @@ async function loadRenderHistory({ silent = false } = {}) {
       20000
     );
     if (!response.ok) {
-      if (!silent) renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyUnavailable"))}</div>`;
+      const apiError = normalizeApiError({
+        url: `${API_BASE_URL}/renders/history?limit=10`,
+        options: { method: "GET", headers: buildSessionAuthHeaders() },
+        response,
+        payload,
+        fallback: t("historyUnavailable"),
+      });
+      if (!silent) renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(apiErrorMessage(apiError))}</div>`;
       return;
     }
     renderHistory(Array.isArray(payload) ? payload : []);
-  } catch (_) {
-    if (!silent) renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(t("historyUnavailable"))}</div>`;
+  } catch (error) {
+    if (!silent) {
+      const apiError = error?.apiError || normalizeApiError({
+        url: `${API_BASE_URL}/renders/history?limit=10`,
+        options: { method: "GET", headers: buildSessionAuthHeaders() },
+        error,
+        fallback: t("historyUnavailable"),
+      });
+      renderHistoryList.innerHTML = `<div class="history-note">${escapeHtml(apiErrorMessage(apiError))}</div>`;
+    }
   }
 }
 
@@ -1695,9 +1884,14 @@ function updateCustomTextVisibility() {
 
 /* API helpers */
 async function checkHealth() {
-  const { response, payload } = await fetchJson(`${API_BASE_URL}/`, { method: "GET" }, 15000);
+  const url = `${API_BASE_URL}/`;
+  const options = { method: "GET" };
+  const { response, payload } = await fetchJson(url, options, 15000);
   if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, t("healthFailed")));
+    const apiError = normalizeApiError({ url, options, response, payload, fallback: t("healthFailed") });
+    const error = new Error(apiErrorMessage(apiError));
+    error.apiError = apiError;
+    throw error;
   }
   return payload;
 }
@@ -1906,6 +2100,8 @@ async function uploadAndRender() {
           message = telegramContextRequiredMessage();
         } else if (accessResult.reason === "auth_failed") {
           message = accessMessageForErrorCode(accessResult.errorCode);
+        } else if (accessResult.reason === "api_error") {
+          message = accessResult.errors?.find((error) => error.apiError)?.apiError?.userMessage || t("networkUnavailable");
         } else if (accessResult.reason === "unverified") {
           message = accessVerificationFailedMessage();
         }
@@ -1941,25 +2137,34 @@ async function uploadAndRender() {
       preset: milkPreset,
     });
 
+    const uploadUrl = `${API_BASE_URL}/api/v1/render`;
+    const uploadOptions = {
+      method: "POST",
+      headers: buildSessionAuthHeaders(),
+      body: formData,
+    };
     const { response: uploadResponse, payload: uploadData } = await fetchJson(
-      `${API_BASE_URL}/api/v1/render`,
-      {
-        method: "POST",
-        headers: buildSessionAuthHeaders(),
-        body: formData,
-      },
+      uploadUrl,
+      uploadOptions,
       120000
     );
 
     if (!uploadResponse.ok) {
       const uploadErrorCode = getBackendErrorCode(uploadData);
+      const uploadApiError = normalizeApiError({
+        url: uploadUrl,
+        options: uploadOptions,
+        response: uploadResponse,
+        payload: uploadData,
+        fallback: t("validationFailed"),
+      });
       const errorMessage = AUTH_ERROR_CODES.has(uploadErrorCode)
         ? accessMessageForErrorCode(uploadErrorCode)
-        : extractErrorMessage(uploadData, t("validationFailed"));
+        : apiErrorMessage(uploadApiError);
       setStatus(formatStatusHtml(errorMessage), "error");
       console.error("TMA upload failed", uploadResponse.status, {
         backendErrorCode: uploadErrorCode,
-        payload: uploadData,
+        apiError: uploadApiError,
       });
       return;
     }
@@ -1983,16 +2188,24 @@ async function uploadAndRender() {
       let statusData;
 
       try {
+        const statusUrl = `${API_BASE_URL}/status/${taskId}`;
+        const statusOptions = { method: "GET", headers: buildSessionAuthHeaders() };
         const statusResult = await fetchJson(
-          `${API_BASE_URL}/status/${taskId}`,
-          { method: "GET", headers: buildSessionAuthHeaders() },
+          statusUrl,
+          statusOptions,
           30000
         );
         statusResponse = statusResult.response;
         statusData = statusResult.payload;
       } catch (error) {
         statusNetworkErrors += 1;
-        setStatus(transientStatusMessage(statusNetworkErrors, lastKnownPercent), "info");
+        const apiError = error?.apiError || normalizeApiError({
+          url: `${API_BASE_URL}/status/${taskId}`,
+          options: { method: "GET", headers: buildSessionAuthHeaders() },
+          error,
+          fallback: t("statusUnavailable"),
+        });
+        setStatus(`${apiErrorMessage(apiError)}\n${transientStatusMessage(statusNetworkErrors, lastKnownPercent)}`, "info");
         continue;
       }
 
@@ -2009,11 +2222,25 @@ async function uploadAndRender() {
 
         if (isTemporaryStatusError(statusResponse.status)) {
           statusNetworkErrors += 1;
-          setStatus(transientStatusMessage(statusNetworkErrors, lastKnownPercent), "info");
+          const statusApiError = normalizeApiError({
+            url: `${API_BASE_URL}/status/${taskId}`,
+            options: { method: "GET", headers: buildSessionAuthHeaders() },
+            response: statusResponse,
+            payload: statusData,
+            fallback: t("statusUnavailable"),
+          });
+          setStatus(`${apiErrorMessage(statusApiError)}\n${transientStatusMessage(statusNetworkErrors, lastKnownPercent)}`, "info");
           continue;
         }
 
-        const errorMessage = extractErrorMessage(statusData, t("statusUnavailable"));
+        const statusApiError = normalizeApiError({
+          url: `${API_BASE_URL}/status/${taskId}`,
+          options: { method: "GET", headers: buildSessionAuthHeaders() },
+          response: statusResponse,
+          payload: statusData,
+          fallback: t("statusUnavailable"),
+        });
+        const errorMessage = apiErrorMessage(statusApiError);
         setStatus(formatStatusHtml(errorMessage), "error");
         return;
       }
@@ -2100,7 +2327,7 @@ async function uploadAndRender() {
       }
     }
   } catch (error) {
-    const message = error?.message || t("networkError");
+    const message = apiErrorMessage(error?.apiError) || error?.message || t("networkError");
     setStatus(formatStatusHtml(message), "error");
   } finally {
     renderButton.disabled = false;
