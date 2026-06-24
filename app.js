@@ -1985,7 +1985,7 @@ async function uploadAndRender() {
       try {
         const statusResult = await fetchJson(
           `${API_BASE_URL}/status/${taskId}`,
-          { method: "GET" },
+          { method: "GET", headers: buildSessionAuthHeaders() },
           30000
         );
         statusResponse = statusResult.response;
@@ -1997,6 +1997,16 @@ async function uploadAndRender() {
       }
 
       if (!statusResponse.ok) {
+        const statusErrorCode = getBackendErrorCode(statusData);
+        const authError = statusResponse.status === 401 || AUTH_ERROR_CODES.has(statusErrorCode);
+        if (authError) {
+          const authMessage = AUTH_ERROR_CODES.has(statusErrorCode)
+            ? accessMessageForErrorCode(statusErrorCode)
+            : accessAuthFailedMessage();
+          setRetryableAuthStatus(authMessage, statusErrorCode);
+          return;
+        }
+
         if (isTemporaryStatusError(statusResponse.status)) {
           statusNetworkErrors += 1;
           setStatus(transientStatusMessage(statusNetworkErrors, lastKnownPercent), "info");
